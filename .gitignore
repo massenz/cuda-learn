@@ -1,0 +1,13 @@
+# Binaries for programs and plugins
+*.o
+*.a
+*.so
+*.dylib
+*.out
+
+# Ignored directories (remove the comment below to include it)
+vendor/
+.idea/
+bin/
+tmp/
+private/
