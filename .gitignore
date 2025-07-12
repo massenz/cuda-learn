@@ -4,6 +4,7 @@
 *.so
 *.dylib
 *.out
+build/
 
 # Ignored directories (remove the comment below to include it)
 vendor/
@@ -11,3 +12,5 @@ vendor/
 bin/
 tmp/
 private/
+.vscode/
+.DS_Store
