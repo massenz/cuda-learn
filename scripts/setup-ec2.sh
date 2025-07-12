@@ -4,20 +4,20 @@ set -eu
 source ${COMMON_UTILS}/utils.sh
 
 KEY_NAME=gpu-key
-# ✅ Check if a key pair named `gpu-key` exists
+# Check if a key pair named `gpu-key` exists
 KEY_ID=$(aws ec2 describe-key-pairs --key-names ${KEY_NAME} \
   --query 'KeyPairs[*].KeyPairId' --output text)
 
 if [[ -z ${KEY_ID} ]]; then
   aws ec2 create-key-pair --key-name ${KEY_NAME} \
-    --query 'KeyMaterial' --output text > ${KEY_NAME}.pem
+    --query 'KeyMaterial' --output text > private/${KEY_NAME}.pem
   chmod 400 ${KEY_NAME}.pem
   KEY_ID=$(aws ec2 describe-key-pairs --key-names ${KEY_NAME} \
     --query 'KeyPairs[*].KeyPairId' --output text)
 
   success "Created SSH key  ${KEY_NAME} (${KEY_ID})"
 fi
-msg "Key pair in ${KEY_NAME}.pem"
+msg "Key pair in private/${KEY_NAME}.pem"
 
 VPC_ID=$(aws ec2 describe-vpcs \
   --region us-west-2 \
@@ -55,22 +55,46 @@ fi
 msg "SSH Access enabled (Security Group: ${SG_ID})"
 
 SUBNET_ID=$(aws ec2 describe-subnets --query 'Subnets[0].SubnetId' --output text)
-AMI_ID=$(aws ec2 describe-images \
+
+# Get both fields: ImageId and Name (sorted by CreationDate descending)
+AMI_INFO=$(aws ec2 describe-images \
   --owners amazon \
-  --filters "Name=name,Values=Deep Learning AMI GPU*" \
-  --query 'Images[*].[ImageId,CreationDate]' \
-  --output text | sort -k2 -r | head -n1 | cut -f 1)
+  --filters "Name=name,Values=*GPU*PyTorch*2*Ubuntu*" "Name=architecture,Values=x86_64" \
+  --query "Images[].[ImageId, CreationDate, Name]" \
+  --output text | sort -k2 -r | head -n1)
+AMI_ID=$(echo "$AMI_INFO" | awk '{print $1}')
+AMI_NAME=$(echo "$AMI_INFO" | cut -f3-)
 
 # Cheapest GPU-enabled AMI
 # See: https://aws.amazon.com/ec2/pricing/on-demand/
 INSTANCE_TYPE=g4dn.xlarge
-msg "Reserving an EC2 Instance (${INSTANCE_TYPE}), Deep Learning AMI GPU: ${AMI_ID}"
+# Expect ami-0cd047a60c9801486 (as of 2025-07-11)
+msg "Reserving an EC2 Instance (${INSTANCE_TYPE}), AMI: $AMI_ID ($AMI_NAME)"
 
-aws ec2 run-instances \
-  --image-id ${AMI_ID} \
-  --count 1 \
-  --instance-type ${INSTANCE_TYPE} \
-  --key-name ${KEY_NAME} \
-  --security-group-ids ${SG_ID} \
-  --subnet-id ${SUBNET_ID} \
-  --output text
+# TODO: currently not used; need to add script option to reserve Spot instance
+SPOT="--instance-market-options 'MarketType=spot'"
+INSTANCE_ID=$(
+  aws ec2 run-instances \
+    --image-id ${AMI_ID} \
+    --count 1 \
+    --instance-type ${INSTANCE_TYPE} \
+    --key-name ${KEY_NAME} \
+    --security-group-ids ${SG_ID} \
+    --subnet-id ${SUBNET_ID} \
+    --query 'Instances[0].InstanceId' \
+    --output text
+)
+msg "Launched instance: ${INSTANCE_ID}"
+
+aws ec2 wait instance-running --instance-ids ${INSTANCE_ID}
+success "Instance ${INSTANCE_ID} is now running."
+# Get Public IP
+PUBLIC_IP=$(aws ec2 describe-instances \
+  --instance-ids ${INSTANCE_ID} \
+  --query 'Reservations[0].Instances[0].PublicIpAddress' \
+  --output text)
+msg "Public IP: ${PUBLIC_IP}"
+
+echo "To SSH into the instance use:
+  ssh -i  private/${KEY_NAME}.pem ubuntu@${PUBLIC_IP}
+"
