@@ -3,6 +3,7 @@ package vpc
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -152,6 +153,10 @@ func (v *VPCClient) createVPC(projectTag, cidrBlock string) (string, error) {
 			{
 				Key:   aws.String("project"),
 				Value: aws.String(projectTag),
+			},
+			{
+				Key:   aws.String("created-by"),
+				Value: aws.String(os.Getenv("USER")),
 			},
 		},
 	}
