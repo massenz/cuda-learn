@@ -10,32 +10,71 @@ The main goal of this repository is to facilitate learning CUDA programming by:
 - Providing infrastructure-as-code for AWS resources
 - Including sample CUDA C++ code for learning and experimentation
 
-## AWS Setup Scripts
+## AWS Infrastructure CLI
 
-### setup-vpc.sh
-This script handles the one-time setup of the AWS VPC infrastructure:
-- Creates a new VPC with CIDR block 10.0.0.0/16 in us-west-2 region
-- Sets up a subnet in us-west-2a (CIDR: 10.0.1.0/24)
-- Creates and attaches an Internet Gateway
-- Configures route tables for internet access
-- Enables auto-assign public IP for the subnet
-- Tags all resources with project=cuda-learn
+The project includes a Go-based CLI tool that automates the creation and management of AWS infrastructure for CUDA-Learn. This tool replaces the previous bash scripts with a more robust and feature-rich implementation.
 
-Note: This script only needs to be run once to set up the initial infrastructure.
+### Features
 
-### setup-ec2.sh
-This script automates the creation and configuration of a GPU-enabled EC2 instance:
-- Creates or reuses an SSH key pair (`gpu-key`) for instance access
-- Validates VPC and subnet configuration using the cuda-learn project tags
-- Sets up a security group (`ssh-sg`) that allows inbound SSH access (port 22)
-- Launches a GPU-enabled instance (g4dn.xlarge) using the latest PyTorch AMI
-- Waits for the instance to be running and retrieves its public IP
-- Provides SSH connection details upon completion
+- Creates a VPC with all necessary networking components (subnets, internet gateway, routing tables)
+- Creates security groups for SSH access
+- Generates SSH key pairs and stores them both locally and in AWS SecretsManager
+- Launches EC2 instances with GPU support using the latest PyTorch AMI
+- Provides a simple command-line interface with configurable options
+
+### Prerequisites
+
+- Go 1.16 or later
+- AWS credentials configured (via environment variables, AWS CLI, or IAM role)
+- AWS permissions for:
+  - EC2 (VPC, subnets, security groups, instances)
+  - SecretsManager
+
+### Usage
+
+The CLI tool can be built and run using the provided Makefile targets:
+
+```bash
+# Build the CLI tool
+make cli
+
+# Set up VPC infrastructure only
+make vpc
+
+# Set up EC2 instance only (requires VPC to exist)
+make instance
+
+# Set up both VPC and EC2 instance
+./build/cuda-learn setup
+```
+
+#### Advanced Usage
+
+You can run the CLI tool directly with various flags:
+
+```bash
+./build/cuda-learn setup --region us-east-1 --project my-project --vpc-cidr 192.168.0.0/16 --subnet-cidr 192.168.1.0/24 --key-name my-key --instance-type p3.2xlarge
+```
+
+#### Available Commands
+
+- `setup`: Sets up both VPC and EC2 infrastructure
+- `vpc`: Sets up only VPC infrastructure
+- `instance`: Sets up only EC2 instance (requires VPC to exist)
+
+#### Available Flags
+
+- `--region`: AWS region (default: us-west-2)
+- `--project`: Project tag value (default: cuda-learn)
+- `--vpc-cidr`: VPC CIDR block (default: 10.0.0.0/16)
+- `--subnet-cidr`: Subnet CIDR block (default: 10.0.1.0/24)
+- `--key-name`: SSH key name (default: gpu-key)
+- `--instance-type`: EC2 instance type (default: g4dn.xlarge)
 
 ## Connecting to the EC2 Instance
 
 ### Direct SSH Connection
-After running setup-ec2.sh, you can connect using the provided command:
+After running the CLI tool, you can connect using the provided command:
 ```bash
 ssh -i private/gpu-key.pem ubuntu@<PUBLIC_IP>
 ```
@@ -79,9 +118,14 @@ Important Links:
 
 ## Project Structure
 
-- `setup-ec2.sh`: Main script for EC2 instance provisioning
-- `Makefile`: Build configuration for CUDA C++ code
-- Sample CUDA C++ code (demonstration purposes)
+- `go-aws-cli/`: Go CLI tool for AWS infrastructure management
+  - `cmd/`: Contains the main application entry point
+  - `pkg/`: Contains packages for VPC, EC2, and common utilities
+- `build/`: Contains compiled binaries
+  - `cuda-learn`: The CLI tool binary
+  - `matrix_gen`: CUDA sample application
+- `Makefile`: Build configuration for both CUDA code and CLI tool
+- `src/`: Sample CUDA C++ code (demonstration purposes)
 
 ## Build System
 
@@ -104,9 +148,17 @@ Future Improvements:
 ## Usage
 
 1. Request AWS GPU instance quota increases if needed
-2. Run the setup script:
+2. Build and run the CLI tool:
    ```bash
-   ./setup-ec2.sh
+   # Build the CLI tool
+   make cli
+   
+   # Set up both VPC and EC2 infrastructure
+   make vpc
+   make instance
+   
+   # Or set up everything at once
+   ./build/cuda-learn setup
    ```
 3. SSH into the instance using the provided connection details
 4. Clone this repository and build the CUDA code using make

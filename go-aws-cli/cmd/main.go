@@ -34,7 +34,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&keyName, "key-name", "gpu-key", "SSH key name")
 	rootCmd.PersistentFlags().StringVar(&instanceType, "instance-type", "g4dn.xlarge", "EC2 instance type")
 
-	// Create setup command
+	// Create setup command (sets up both VPC and EC2)
 	var setupCmd = &cobra.Command{
 		Use:   "setup",
 		Short: "Setup AWS infrastructure",
@@ -72,8 +72,77 @@ func main() {
 		},
 	}
 
+	// Create vpc command (sets up only VPC)
+	var vpcCmd = &cobra.Command{
+		Use:   "vpc",
+		Short: "Setup VPC infrastructure",
+		Long:  `Setup VPC infrastructure including subnet, internet gateway, and routing.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Initialize AWS config
+			cfg, err := common.InitAWSConfig(region)
+			if err != nil {
+				return fmt.Errorf("failed to initialize AWS config: %v", err)
+			}
+
+			// Create VPC infrastructure
+			vpcClient := vpc.NewVPCClient(cfg)
+			vpcID, subnetID, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
+			if err != nil {
+				return fmt.Errorf("failed to setup VPC: %v", err)
+			}
+
+			fmt.Printf("Successfully created VPC infrastructure:\n")
+			fmt.Printf("VPC ID: %s\n", vpcID)
+			fmt.Printf("Subnet ID: %s\n", subnetID)
+
+			return nil
+		},
+	}
+
+	// Create instance command (sets up only EC2 instance)
+	var instanceCmd = &cobra.Command{
+		Use:   "instance",
+		Short: "Setup EC2 instance",
+		Long:  `Setup EC2 instance in the existing VPC.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Initialize AWS config
+			cfg, err := common.InitAWSConfig(region)
+			if err != nil {
+				return fmt.Errorf("failed to initialize AWS config: %v", err)
+			}
+
+			// Find VPC by tag
+			vpcClient := vpc.NewVPCClient(cfg)
+			vpcID, subnetID, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
+			if err != nil {
+				return fmt.Errorf("failed to find VPC: %v", err)
+			}
+
+			if vpcID == "" {
+				return fmt.Errorf("no VPC found with tag project=%s, please create VPC first", projectTag)
+			}
+
+			// Create EC2 instance
+			ec2Client := ec2.NewEC2Client(cfg)
+			instanceID, publicIP, err := ec2Client.SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType)
+			if err != nil {
+				return fmt.Errorf("failed to setup EC2 instance: %v", err)
+			}
+
+			fmt.Printf("Successfully created EC2 instance:\n")
+			fmt.Printf("Instance ID: %s\n", instanceID)
+			fmt.Printf("Public IP: %s\n", publicIP)
+			fmt.Printf("To SSH into the instance use:\n")
+			fmt.Printf("  ssh -i private/%s.pem ubuntu@%s\n", keyName, publicIP)
+
+			return nil
+		},
+	}
+
 	// Add commands to root
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(vpcCmd)
+	rootCmd.AddCommand(instanceCmd)
 
 	// Execute
 	if err := rootCmd.Execute(); err != nil {
