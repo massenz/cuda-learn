@@ -16,30 +16,30 @@ all: build run
 
 $(TARGET): src/$(SRC)
 	@mkdir -p build
-	@echo "--- Compiling CUDA source files"
+	@echo "--- 💻 Compiling CUDA source files: $(SRC)"
 	$(NVCC) $(NVCC_FLAGS) src/$(SRC) -o $(TARGET)
 
 build: $(TARGET)
-	@echo "--- Build complete"
+	@echo "--- 🏗️ Build complete"
 
 run: build
-	@echo "--- Running the program"
+	@echo "--- 🏃‍♂️ Running the program"
 	./$(TARGET)
 
 # CLI tool targets
 cli:
 	@mkdir -p build
-	@echo "--- Building CLI tool"
+	@echo "--- 🛠️ Building CLI tool"
 	cd go-aws-cli && go build -o ../$(CLI_TARGET) ./cmd
 
 vpc: cli
-	@echo "--- Setting up VPC infrastructure"
+	@echo "--- 🌐 Setting up VPC infrastructure"
 	./$(CLI_TARGET) vpc
 
 instance: cli
-	@echo "--- Setting up EC2 instance"
+	@echo "--- 🌐 Setting up EC2 instance"
 	./$(CLI_TARGET) instance
 
 clean:
-	@echo "--- Cleaning build directory"
+	@echo "--- 🧹 Cleaning build directory"
 	@rm -rf build
