@@ -1,8 +1,12 @@
 NVCC = nvcc
 NVCC_FLAGS = -O2
 
-TARGET = build/matrix_gen
-SRC = src/mat_gen.cu
+TARGET = build/gpu-cuda-learn
+
+# Change the source file path as needed
+SRC ?= gpu-props.cu
+
+# AWS CDK CLI tool
 CLI_TARGET = build/cuda-learn
 CLI_SRC = go-aws-cli/cmd
 
@@ -10,10 +14,10 @@ CLI_SRC = go-aws-cli/cmd
 
 all: build run
 
-$(TARGET): $(SRC)
+$(TARGET): src/$(SRC)
 	@mkdir -p build
 	@echo "--- Compiling CUDA source files"
-	$(NVCC) $(NVCC_FLAGS) $(SRC) -o $(TARGET)
+	$(NVCC) $(NVCC_FLAGS) src/$(SRC) -o $(TARGET)
 
 build: $(TARGET)
 	@echo "--- Build complete"
