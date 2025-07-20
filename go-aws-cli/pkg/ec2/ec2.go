@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) 2025 AlertAvert.com.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Author: Marco Massenzio (marco@alertavert.com)
+ */
+
 package ec2
 
 import (
@@ -61,11 +70,12 @@ func (e *EC2Client) SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType 
 	common.LogInfo("Reserving an EC2 Instance (%s), AMI: %s (%s)", instanceType, amiID, amiName)
 
 	// Launch instance
-	instanceID, err := e.launchInstance(amiID, instanceType, keyName, sgID, subnetID)
+	instanceID, err := e.launchInstance(
+		amiID, instanceType, keyName, sgID, subnetID, projectTag)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to launch instance: %w", err)
 	}
-	common.LogInfo("Launched instance: %s", instanceID)
+	common.LogInfo("Launched instance: %s with project tag: %s", instanceID, projectTag)
 
 	// Wait for instance to be running
 	err = e.waitForInstanceRunning(instanceID)
@@ -116,8 +126,9 @@ func (e *EC2Client) setupKeyPair(keyName string) error {
 		return fmt.Errorf("failed to save private key: %w", err)
 	}
 
-	// Store private key in SecretsManager
-	err = e.storeKeyPEMInSecretsManager(keyName, privateKeyPEM)
+	// Store private key in SecretsManager with ssh-key- prefix
+	sshKeyName := fmt.Sprintf("ssh-key-%s", keyName)
+	err = e.StoreKeyPEMInSecretsManager(sshKeyName, privateKeyPEM)
 	if err != nil {
 		return fmt.Errorf("failed to store key in SecretsManager: %w", err)
 	}
@@ -239,10 +250,10 @@ func (e *EC2Client) savePrivateKeyPEM(privateKeyPEM []byte, keyPath string) erro
 	return nil
 }
 
-// storeKeyPEMInSecretsManager stores the private key PEM in AWS SecretsManager
-func (e *EC2Client) storeKeyPEMInSecretsManager(keyName string, privateKeyPEM []byte) error {
-	// Create or update secret
-	secretName := fmt.Sprintf("ssh-key-%s", keyName)
+// StoreKeyPEMInSecretsManager stores the private key PEM in AWS SecretsManager
+func (e *EC2Client) StoreKeyPEMInSecretsManager(keyName string, privateKeyPEM []byte) error {
+	// Use the provided key name directly (no prefix)
+	secretName := keyName
 
 	// Check if secret exists
 	_, err := e.secretsClient.DescribeSecret(context.TODO(), &secretsmanager.DescribeSecretInput{
@@ -250,27 +261,21 @@ func (e *EC2Client) storeKeyPEMInSecretsManager(keyName string, privateKeyPEM []
 	})
 
 	if err != nil {
-		// Create new secret
+		// Secret doesn't exist, create new secret
 		_, err = e.secretsClient.CreateSecret(context.TODO(), &secretsmanager.CreateSecretInput{
 			Name:         aws.String(secretName),
 			SecretString: aws.String(string(privateKeyPEM)),
-			Description:  aws.String(fmt.Sprintf("SSH private key for %s", keyName)),
+			Description:  aws.String(fmt.Sprintf("Private key for %s", keyName)),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create secret: %w", err)
 		}
+		common.LogSuccess("Stored key in SecretsManager: %s", secretName)
 	} else {
-		// Update existing secret
-		_, err = e.secretsClient.PutSecretValue(context.TODO(), &secretsmanager.PutSecretValueInput{
-			SecretId:     aws.String(secretName),
-			SecretString: aws.String(string(privateKeyPEM)),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update secret: %w", err)
-		}
+		// Secret already exists, do not overwrite
+		common.LogInfo("Secret %s already exists in SecretsManager, not overwriting", secretName)
 	}
 
-	common.LogSuccess("Stored SSH key in SecretsManager: %s", secretName)
 	return nil
 }
 
@@ -285,8 +290,8 @@ func (e *EC2Client) storeKeyInSecretsManager(keyName string, privateKey *rsa.Pri
 	// Encode to PEM format
 	pemBytes := pem.EncodeToMemory(privateKeyPEM)
 
-	// Create or update secret
-	secretName := fmt.Sprintf("ssh-key-%s", keyName)
+	// Use the provided key name directly (no prefix)
+	secretName := keyName
 
 	// Check if secret exists
 	_, err := e.secretsClient.DescribeSecret(context.TODO(), &secretsmanager.DescribeSecretInput{
@@ -294,27 +299,21 @@ func (e *EC2Client) storeKeyInSecretsManager(keyName string, privateKey *rsa.Pri
 	})
 
 	if err != nil {
-		// Create new secret
+		// Secret doesn't exist, create new secret
 		_, err = e.secretsClient.CreateSecret(context.TODO(), &secretsmanager.CreateSecretInput{
 			Name:         aws.String(secretName),
 			SecretString: aws.String(string(pemBytes)),
-			Description:  aws.String(fmt.Sprintf("SSH private key for %s", keyName)),
+			Description:  aws.String(fmt.Sprintf("Private key for %s", keyName)),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create secret: %w", err)
 		}
+		common.LogSuccess("Stored key in SecretsManager: %s", secretName)
 	} else {
-		// Update existing secret
-		_, err = e.secretsClient.PutSecretValue(context.TODO(), &secretsmanager.PutSecretValueInput{
-			SecretId:     aws.String(secretName),
-			SecretString: aws.String(string(pemBytes)),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to update secret: %w", err)
-		}
+		// Secret already exists, do not overwrite
+		common.LogInfo("Secret %s already exists in SecretsManager, not overwriting", secretName)
 	}
 
-	common.LogSuccess("Stored SSH key in SecretsManager: %s", secretName)
 	return nil
 }
 
@@ -358,15 +357,27 @@ func (e *EC2Client) findLatestAMI() (string, string, error) {
 }
 
 // launchInstance launches a new EC2 instance
-func (e *EC2Client) launchInstance(amiID, instanceType, keyName, sgID, subnetID string) (string, error) {
+func (e *EC2Client) launchInstance(amiID, instanceType, keyName, sgID, subnetID, projectTag string) (string, error) {
+	// Create tag specifications for the instance
+	tags := common.CreateTagSpecifications("instance", projectTag, nil)
+
+	// Convert to TagSpecification
+	tagSpecifications := []types.TagSpecification{
+		{
+			ResourceType: types.ResourceTypeInstance,
+			Tags:         tags,
+		},
+	}
+
 	input := &ec2.RunInstancesInput{
-		ImageId:          aws.String(amiID),
-		InstanceType:     types.InstanceType(instanceType),
-		MinCount:         aws.Int32(1),
-		MaxCount:         aws.Int32(1),
-		KeyName:          aws.String(keyName),
-		SecurityGroupIds: []string{sgID},
-		SubnetId:         aws.String(subnetID),
+		ImageId:           aws.String(amiID),
+		InstanceType:      types.InstanceType(instanceType),
+		MinCount:          aws.Int32(1),
+		MaxCount:          aws.Int32(1),
+		KeyName:           aws.String(keyName),
+		SecurityGroupIds:  []string{sgID},
+		SubnetId:          aws.String(subnetID),
+		TagSpecifications: tagSpecifications,
 	}
 
 	resp, err := e.ec2Client.RunInstances(context.TODO(), input)
@@ -410,4 +421,70 @@ func (e *EC2Client) getInstancePublicIP(instanceID string) (string, error) {
 	}
 
 	return *instance.PublicIpAddress, nil
+}
+
+// FindInstancesByProjectTag finds EC2 instances with a specific project tag
+func (e *EC2Client) FindInstancesByProjectTag(projectTag string) ([]types.Instance, error) {
+	input := &ec2.DescribeInstancesInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("tag:project"),
+				Values: []string{projectTag},
+			},
+			{
+				Name:   aws.String("instance-state-name"),
+				Values: []string{"pending", "running", "stopping", "stopped"},
+			},
+		},
+	}
+
+	resp, err := e.ec2Client.DescribeInstances(context.TODO(), input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe instances: %w", err)
+	}
+
+	var instances []types.Instance
+	for _, reservation := range resp.Reservations {
+		instances = append(instances, reservation.Instances...)
+	}
+
+	return instances, nil
+}
+
+// GetInstanceDetails returns a formatted string with instance details including tags
+func (e *EC2Client) GetInstanceDetails(instance types.Instance) string {
+	var details strings.Builder
+	details.WriteString(fmt.Sprintf("Instance ID: %s\n", *instance.InstanceId))
+
+	if instance.InstanceType != "" {
+		details.WriteString(fmt.Sprintf("Type: %s\n", instance.InstanceType))
+	}
+
+	if instance.State != nil {
+		details.WriteString(fmt.Sprintf("State: %s\n", instance.State.Name))
+	}
+
+	if len(instance.Tags) > 0 {
+		details.WriteString("Tags:\n")
+		for _, tag := range instance.Tags {
+			details.WriteString(fmt.Sprintf("  %s: %s\n", *tag.Key, *tag.Value))
+		}
+	}
+
+	return details.String()
+}
+
+// TerminateInstance terminates an EC2 instance
+func (e *EC2Client) TerminateInstance(instanceID string) error {
+	input := &ec2.TerminateInstancesInput{
+		InstanceIds: []string{instanceID},
+	}
+
+	_, err := e.ec2Client.TerminateInstances(context.TODO(), input)
+	if err != nil {
+		return fmt.Errorf("failed to terminate instance: %w", err)
+	}
+
+	common.LogSuccess("Instance %s termination initiated", instanceID)
+	return nil
 }
