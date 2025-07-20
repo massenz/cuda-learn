@@ -21,4 +21,13 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
+<!--
+  - Copyright (c) 2025.  All rights reserved.
+  -
+  - Licensed under the Apache License, Version 2.0
+  - http://www.apache.org/licenses/LICENSE-2.0
+  -
+  - Author: Marco Massenzio (marco@alertavert.com)
+  -->
+
 )

@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 #
+# Copyright (c) 2025.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Author: Marco Massenzio (marco@alertavert.com)
+#
+
+#
 # Run this script on the EC2 remote host to setup git
 
 git config --global init.defaultBranch main

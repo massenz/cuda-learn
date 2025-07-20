@@ -3,6 +3,8 @@
 
 This repository contains scripts and code for learning CUDA programming using AWS EC2 GPU instances. The project provides automation scripts for setting up and configuring GPU-enabled EC2 instances, along with sample CUDA C++ code for experimentation.
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 ## Overview
 
 The main goal of this repository is to facilitate learning CUDA programming by:
