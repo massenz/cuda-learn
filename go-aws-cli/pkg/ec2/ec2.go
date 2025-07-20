@@ -103,27 +103,21 @@ func (e *EC2Client) setupKeyPair(keyName string) error {
 		return fmt.Errorf("failed to create private directory: %w", err)
 	}
 
-	// Generate key pair
-	privateKey, publicKey, err := e.generateKeyPair()
+	// Create key pair directly in AWS
+	keyID, privateKeyPEM, err := e.createKeyPair(keyName)
 	if err != nil {
-		return fmt.Errorf("failed to generate key pair: %w", err)
+		return fmt.Errorf("failed to create key pair: %w", err)
 	}
 
 	// Save private key to file
 	keyPath := filepath.Join("private", keyName+".pem")
-	err = e.savePrivateKey(privateKey, keyPath)
+	err = e.savePrivateKeyPEM(privateKeyPEM, keyPath)
 	if err != nil {
 		return fmt.Errorf("failed to save private key: %w", err)
 	}
 
-	// Import key pair to AWS
-	keyID, err = e.importKeyPair(keyName, publicKey)
-	if err != nil {
-		return fmt.Errorf("failed to import key pair: %w", err)
-	}
-
 	// Store private key in SecretsManager
-	err = e.storeKeyInSecretsManager(keyName, privateKey)
+	err = e.storeKeyPEMInSecretsManager(keyName, privateKeyPEM)
 	if err != nil {
 		return fmt.Errorf("failed to store key in SecretsManager: %w", err)
 	}
@@ -208,6 +202,76 @@ func (e *EC2Client) importKeyPair(keyName string, publicKey []byte) (string, err
 	}
 
 	return *resp.KeyPairId, nil
+}
+
+// createKeyPair creates a new key pair directly in AWS
+func (e *EC2Client) createKeyPair(keyName string) (string, []byte, error) {
+	input := &ec2.CreateKeyPairInput{
+		KeyName: aws.String(keyName),
+	}
+
+	resp, err := e.ec2Client.CreateKeyPair(context.TODO(), input)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create key pair: %w", err)
+	}
+
+	// The private key is returned as a PEM-encoded string
+	privateKeyPEM := []byte(*resp.KeyMaterial)
+
+	return *resp.KeyPairId, privateKeyPEM, nil
+}
+
+// savePrivateKeyPEM saves the private key PEM to a file
+func (e *EC2Client) savePrivateKeyPEM(privateKeyPEM []byte, keyPath string) error {
+	// Create file
+	file, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create private key file: %w", err)
+	}
+	defer file.Close()
+
+	// Write PEM data
+	_, err = file.Write(privateKeyPEM)
+	if err != nil {
+		return fmt.Errorf("failed to write private key: %w", err)
+	}
+
+	return nil
+}
+
+// storeKeyPEMInSecretsManager stores the private key PEM in AWS SecretsManager
+func (e *EC2Client) storeKeyPEMInSecretsManager(keyName string, privateKeyPEM []byte) error {
+	// Create or update secret
+	secretName := fmt.Sprintf("ssh-key-%s", keyName)
+
+	// Check if secret exists
+	_, err := e.secretsClient.DescribeSecret(context.TODO(), &secretsmanager.DescribeSecretInput{
+		SecretId: aws.String(secretName),
+	})
+
+	if err != nil {
+		// Create new secret
+		_, err = e.secretsClient.CreateSecret(context.TODO(), &secretsmanager.CreateSecretInput{
+			Name:         aws.String(secretName),
+			SecretString: aws.String(string(privateKeyPEM)),
+			Description:  aws.String(fmt.Sprintf("SSH private key for %s", keyName)),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create secret: %w", err)
+		}
+	} else {
+		// Update existing secret
+		_, err = e.secretsClient.PutSecretValue(context.TODO(), &secretsmanager.PutSecretValueInput{
+			SecretId:     aws.String(secretName),
+			SecretString: aws.String(string(privateKeyPEM)),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update secret: %w", err)
+		}
+	}
+
+	common.LogSuccess("Stored SSH key in SecretsManager: %s", secretName)
+	return nil
 }
 
 // storeKeyInSecretsManager stores the private key in AWS SecretsManager
