@@ -5,7 +5,7 @@
 #
 # Author: Marco Massenzio (marco@alertavert.com)
 NVCC = nvcc
-NVCC_FLAGS = -O2
+NVCC_FLAGS = -O2 -diag-suppress 2361
 TARGET = build/gpu-cuda-learn
 
 # Change the source file path as needed

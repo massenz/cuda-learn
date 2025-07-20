@@ -4,10 +4,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Author: Marco Massenzio (marco@alertavert.com)
-
-//
-// Created by Marco Massenzio on 7/17/25.
-//
 #include <stdio.h>
 #include <cuda_runtime.h>
 
