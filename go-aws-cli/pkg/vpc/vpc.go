@@ -18,26 +18,36 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/cuda-learn/go-aws-cli/pkg/common"
+	"github.com/cuda-learn/go-aws-cli/pkg/iam"
 )
 
 // VPCClient handles VPC-related operations
 type VPCClient struct {
-	client *ec2.Client
+	client   *ec2.Client
+	iamClient *iam.IAMClient
 }
 
 // NewVPCClient creates a new VPC client
 func NewVPCClient(cfg aws.Config) *VPCClient {
 	return &VPCClient{
-		client: ec2.NewFromConfig(cfg),
+		client:    ec2.NewFromConfig(cfg),
+		iamClient: iam.NewIAMClient(cfg),
 	}
 }
 
 // SetupVPC creates or finds a VPC with the specified tag
-func (v *VPCClient) SetupVPC(projectTag, vpcCidr, subnetCidr string) (string, string, error) {
+// Returns VPC ID, subnet ID, instance profile ARN, and error
+func (v *VPCClient) SetupVPC(projectTag, vpcCidr, subnetCidr string) (string, string, string, error) {
 	// Check if VPC with tag exists
 	vpcID, err := v.findVPCByTag(projectTag)
 	if err != nil {
-		return "", "", fmt.Errorf("error finding VPC: %w", err)
+		return "", "", "", fmt.Errorf("error finding VPC: %w", err)
+	}
+
+	// Setup IAM role and instance profile for EC2 instances
+	profileArn, err := v.iamClient.SetupEC2Role(projectTag)
+	if err != nil {
+		return "", "", "", fmt.Errorf("error setting up IAM role: %w", err)
 	}
 
 	// If VPC exists, find subnet
@@ -47,49 +57,49 @@ func (v *VPCClient) SetupVPC(projectTag, vpcCidr, subnetCidr string) (string, st
 		// Find subnet in the VPC
 		subnetID, err := v.findSubnetByTag(vpcID, projectTag)
 		if err != nil {
-			return "", "", fmt.Errorf("error finding subnet: %w", err)
+			return "", "", "", fmt.Errorf("error finding subnet: %w", err)
 		}
 
 		if subnetID == "" {
-			return "", "", fmt.Errorf("no subnet found in VPC %s with tag project=%s", vpcID, projectTag)
+			return "", "", "", fmt.Errorf("no subnet found in VPC %s with tag project=%s", vpcID, projectTag)
 		}
 
 		common.LogInfo("Found existing Subnet: %s", subnetID)
-		return vpcID, subnetID, nil
+		return vpcID, subnetID, profileArn, nil
 	}
 
 	// Create new VPC
 	common.LogInfo("No existing VPC found. Creating new one...")
 	vpcID, err = v.createVPC(projectTag, vpcCidr)
 	if err != nil {
-		return "", "", fmt.Errorf("error creating VPC: %w", err)
+		return "", "", "", fmt.Errorf("error creating VPC: %w", err)
 	}
 
 	// Create subnet
 	subnetID, err := v.createSubnet(vpcID, projectTag, subnetCidr)
 	if err != nil {
-		return "", "", fmt.Errorf("error creating subnet: %w", err)
+		return "", "", "", fmt.Errorf("error creating subnet: %w", err)
 	}
 
 	// Create and attach internet gateway
 	igwID, err := v.createAndAttachInternetGateway(vpcID)
 	if err != nil {
-		return "", "", fmt.Errorf("error creating/attaching internet gateway: %w", err)
+		return "", "", "", fmt.Errorf("error creating/attaching internet gateway: %w", err)
 	}
 
 	// Create route table and routes
 	_, err = v.createRouteTable(vpcID, subnetID, igwID)
 	if err != nil {
-		return "", "", fmt.Errorf("error creating route table: %w", err)
+		return "", "", "", fmt.Errorf("error creating route table: %w", err)
 	}
 
 	// Enable auto-assign public IP
 	err = v.enableAutoAssignPublicIP(subnetID)
 	if err != nil {
-		return "", "", fmt.Errorf("error enabling auto-assign public IP: %w", err)
+		return "", "", "", fmt.Errorf("error enabling auto-assign public IP: %w", err)
 	}
 
-	return vpcID, subnetID, nil
+	return vpcID, subnetID, profileArn, nil
 }
 
 // findVPCByTag finds a VPC with the specified tag
