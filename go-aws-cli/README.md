@@ -75,6 +75,41 @@ To SSH into the instance use:
   ssh -i private/gpu-key.pem ubuntu@<public-ip>
 ```
 
+## IAM Role for EC2 Instances
+
+The CLI automatically creates and attaches an IAM role and instance profile to EC2 instances, enabling them to access AWS services without manual credential management.
+
+### What's Created
+
+- **IAM Role**: A role named `<project-tag>-ec2-role` with a trust policy allowing EC2 instances to assume it
+- **Instance Profile**: A profile named `<project-tag>-ec2-instance-profile` that's attached to the EC2 instance
+
+### Permissions
+
+The IAM role has the following managed policies attached:
+
+- **AmazonSSMManagedInstanceCore**: Allows the instance to use AWS Systems Manager
+- **SecretsManagerReadWrite**: Allows the instance to read and write secrets in AWS Secrets Manager
+
+### Benefits
+
+- **No Manual Credentials**: EC2 instances can access AWS services without storing credentials on the instance
+- **Automatic Rotation**: AWS automatically rotates the temporary credentials
+- **Secure**: Follows AWS best practices for security
+- **Simplified Setup**: The `aws` CLI on the instance works without additional configuration
+
+### Usage on the Instance
+
+Once connected to the instance, you can use the AWS CLI without additional configuration:
+
+```bash
+# Example: Retrieve a secret from Secrets Manager
+aws secretsmanager get-secret-value --secret-id "my-secret"
+
+# Example: List S3 buckets
+aws s3 ls
+```
+
 ## Development
 
 ### Project Structure
@@ -83,6 +118,7 @@ To SSH into the instance use:
 - `pkg/common/`: Common utilities and AWS configuration
 - `pkg/vpc/`: VPC-related functionality
 - `pkg/ec2/`: EC2-related functionality
+- `pkg/iam/`: IAM role and instance profile functionality
 
 ### Building from Source
 

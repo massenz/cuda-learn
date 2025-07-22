@@ -16,6 +16,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/cuda-learn/go-aws-cli/pkg/iam"
 	"os"
 	"path/filepath"
 	"sort"
@@ -47,7 +48,7 @@ func NewEC2Client(cfg aws.Config) *EC2Client {
 }
 
 // SetupEC2 creates an EC2 instance
-func (e *EC2Client) SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType string) (string, string, error) {
+func (e *EC2Client) SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType, instanceProfileArn string) (string, string, error) {
 	// Create or find security group
 	sgID, err := e.vpcClient.CreateSecurityGroup(vpcID, projectTag)
 	if err != nil {
@@ -75,6 +76,7 @@ func (e *EC2Client) SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType 
 	if err != nil {
 		return "", "", fmt.Errorf("failed to launch instance: %w", err)
 	}
+	common.LogInfo("Attached IAM Instance Profile: %s to instance", instanceProfileArn)
 	common.LogInfo("Launched instance: %s with project tag: %s", instanceID, projectTag)
 
 	// Wait for instance to be running
@@ -378,6 +380,13 @@ func (e *EC2Client) launchInstance(amiID, instanceType, keyName, sgID, subnetID,
 		SecurityGroupIds:  []string{sgID},
 		SubnetId:          aws.String(subnetID),
 		TagSpecifications: tagSpecifications,
+	}
+
+	// Add IAM instance profile to enable access to AWS services.
+	profileName := iam.EC2InstanceProfileName(projectTag)
+	common.LogInfo("Attaching IAM instance profile: %s", profileName)
+	input.IamInstanceProfile = &types.IamInstanceProfileSpecification{
+		Name: aws.String(profileName),
 	}
 
 	resp, err := e.ec2Client.RunInstances(context.TODO(), input)

@@ -62,14 +62,14 @@ func main() {
 
 			// Create VPC infrastructure
 			vpcClient := vpc.NewVPCClient(cfg)
-			vpcID, subnetID, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
+			vpcID, subnetID, instanceProfileArn, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
 			if err != nil {
 				return fmt.Errorf("failed to setup VPC: %v", err)
 			}
 
 			// Create EC2 instance
 			ec2Client := ec2.NewEC2Client(cfg)
-			instanceID, publicIP, err := ec2Client.SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType)
+			instanceID, publicIP, err := ec2Client.SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType, instanceProfileArn)
 			if err != nil {
 				return fmt.Errorf("failed to setup EC2 instance: %v", err)
 			}
@@ -93,10 +93,14 @@ func main() {
 			fmt.Printf("Successfully created infrastructure:\n")
 			fmt.Printf("VPC ID: %s\n", vpcID)
 			fmt.Printf("Subnet ID: %s\n", subnetID)
+			fmt.Printf("IAM Instance Profile: %s\n", instanceProfileArn)
 			fmt.Printf("Instance ID: %s\n", instanceID)
 			fmt.Printf("Public IP: %s\n", publicIP)
 			fmt.Printf("To SSH into the instance use:\n")
 			fmt.Printf("  ssh -i private/%s.pem ubuntu@%s\n", keyName, publicIP)
+			fmt.Printf("\nTo copy and run the setup script:\n")
+			fmt.Printf("  scp -i private/%s.pem scripts/setup-host.sh ubuntu@%s:~/\n", keyName, publicIP)
+			fmt.Printf("  ssh -i private/%s.pem ubuntu@%s \"chmod +x ~/setup-host.sh && ~/setup-host.sh\"\n", keyName, publicIP)
 
 			return nil
 		},
@@ -116,7 +120,7 @@ func main() {
 
 			// Create VPC infrastructure
 			vpcClient := vpc.NewVPCClient(cfg)
-			vpcID, subnetID, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
+			vpcID, subnetID, instanceProfileArn, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
 			if err != nil {
 				return fmt.Errorf("failed to setup VPC: %v", err)
 			}
@@ -124,6 +128,7 @@ func main() {
 			fmt.Printf("Successfully created VPC infrastructure:\n")
 			fmt.Printf("VPC ID: %s\n", vpcID)
 			fmt.Printf("Subnet ID: %s\n", subnetID)
+			fmt.Printf("IAM Instance Profile ARN: %s\n", instanceProfileArn)
 
 			return nil
 		},
@@ -143,7 +148,7 @@ func main() {
 
 			// Find VPC by tag
 			vpcClient := vpc.NewVPCClient(cfg)
-			vpcID, subnetID, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
+			vpcID, subnetID, instanceProfileArn, err := vpcClient.SetupVPC(projectTag, vpcCidr, subnetCidr)
 			if err != nil {
 				return fmt.Errorf("failed to find VPC: %v", err)
 			}
@@ -154,7 +159,7 @@ func main() {
 
 			// Create EC2 instance
 			ec2Client := ec2.NewEC2Client(cfg)
-			instanceID, publicIP, err := ec2Client.SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType)
+			instanceID, publicIP, err := ec2Client.SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType, instanceProfileArn)
 			if err != nil {
 				return fmt.Errorf("failed to setup EC2 instance: %v", err)
 			}
@@ -176,10 +181,14 @@ func main() {
 			}
 
 			fmt.Printf("Successfully created EC2 instance:\n")
+			fmt.Printf("IAM Instance Profile: %s\n", instanceProfileArn)
 			fmt.Printf("Instance ID: %s\n", instanceID)
 			fmt.Printf("Public IP: %s\n", publicIP)
 			fmt.Printf("To SSH into the instance use:\n")
 			fmt.Printf("  ssh -i private/%s.pem ubuntu@%s\n", keyName, publicIP)
+			fmt.Printf("\nTo copy and run the setup script:\n")
+			fmt.Printf("  scp -i private/%s.pem scripts/setup-host.sh ubuntu@%s:~/\n", keyName, publicIP)
+			fmt.Printf("  ssh -i private/%s.pem ubuntu@%s \"chmod +x ~/setup-host.sh && ~/setup-host.sh\"\n", keyName, publicIP)
 
 			return nil
 		},
