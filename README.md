@@ -24,64 +24,14 @@ The project includes a Go-based CLI tool that automates the creation and managem
 - Launches EC2 instances with GPU support using the latest PyTorch AMI
 - Provides a simple command-line interface with configurable options
 
-### Prerequisites
-
-- Go 1.16 or later
-- AWS credentials configured (via environment variables, AWS CLI, or IAM role)
-- AWS permissions for:
-  - EC2 (VPC, subnets, security groups, instances)
-  - SecretsManager
-
-### Usage
-
-The CLI tool can be built and run using the provided Makefile targets:
-
-```bash
-# Build the CLI tool
+The CLI is more fully described [here](go-aws-cli/README.md), and can be built with:
+```shell
 make cli
-
-# Set up VPC infrastructure only
-make vpc
-
-# Set up EC2 instance only (requires VPC to exist)
-make instance
-
-# Set up both VPC and EC2 instance
-./build/cuda-learn setup
 ```
-
-#### Advanced Usage
-
-You can run the CLI tool directly with various flags:
-
-```bash
-./build/cuda-learn setup --region us-east-1 --project my-project --vpc-cidr 192.168.0.0/16 --subnet-cidr 192.168.1.0/24 --key-name my-key --instance-type p3.2xlarge
+The full set of available commands and flags can be seen using:
+```shell
+./build/cuda-learn help
 ```
-
-#### Available Commands
-
-- `setup`: Sets up both VPC and EC2 infrastructure
-- `vpc`: Sets up only VPC infrastructure
-- `instance`: Sets up only EC2 instance (requires VPC to exist)
-- `teardown`: Terminates EC2 instances with the specified project tag
-
-#### Available Flags
-
-- `--region`: AWS region (default: us-west-2)
-- `--project`: Project tag value (default: cuda-learn)
-- `--vpc-cidr`: VPC CIDR block (default: 10.0.0.0/16)
-- `--subnet-cidr`: Subnet CIDR block (default: 10.0.1.0/24)
-- `--key-name`: SSH key name (default: gpu-key)
-- `--instance-type`: EC2 instance type (default: g4dn.xlarge)
-
-#### Teardown Command Flags
-
-The `teardown` command has additional flags for more control:
-
-- `--instance`: Specifies an instance ID to terminate (must match the project tag)
-- `--all`: Terminates all instances with matching project tag
-
-If neither flag is specified and multiple instances match the project tag, an interactive selection menu will be displayed.
 
 ## Connecting to the EC2 Instance
 
@@ -111,7 +61,7 @@ After adding this configuration, you can simply connect using:
 ssh cuda-learn
 ```
 
-Remember to update the `HostName`(or `/etc/hosts`) whenever you create a new instance. You can find the current public IP in the setup-ec2.sh output or via the AWS Console.
+Remember to update the `HostName`(or `/etc/hosts`) whenever you create a new instance. You can find the current public IP via the AWS Console.
 
 ## AWS GPU Instance Quota Requirements
 
@@ -143,12 +93,21 @@ Important Links:
 
 The project includes a Makefile for building CUDA C++ code. The build system handles compilation and linking of CUDA source files.
 
+The two main commands are `build` and `run` (they can only be run on the GPU instance, as they require `nvcc`, the CUDA compiler) and require specifying the `SRC` file to compile:
+
+```shell
+# On the EC2 instance
+$ make SRC=gpu-props.cu run
+```
+
+We recommend using an IDE such as VSCode connected remotely to the EC2 instance, please see [this blog](https://codetrips.com/2025/07/17/cuda-development-on-aws-gpu-instances/) for more details.
+
 ## Prerequisites
 
-- AWS CLI configured with appropriate credentials
+- AWS configured with appropriate credentials (at the very minimum, `AWS_PROFILE` pointing to a profile in `~/.aws/credentials` with sufficient permissions to create AMI roles, create a VPC, and run EC2 instances)
 - Sufficient AWS quotas for GPU instances (both Spot and On-Demand)
-- CUDA toolkit (for local development)
-- Make build system
+- CUDA toolkit (this comes pre-installed in the GPU-enable AMI that we run on the EC2 instance)
+- Make build system (for local development; on the remote instance it comes pre-installed)
 
 ## Usage
 
