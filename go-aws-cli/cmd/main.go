@@ -215,15 +215,97 @@ func main() {
 				return fmt.Errorf("failed to find instances: %v", err)
 			}
 
-			// Handle the three possible outcomes
-			switch len(instances) {
-			case 0:
-				// No instances found
+			// Check if no instances found
+			if len(instances) == 0 {
 				common.LogError("No instances found with project tag: %s", projectTag)
-				return fmt.Errorf("no instances found with project tag: %s", projectTag)
+				fmt.Printf("No instances found with project tag: %s\n", projectTag)
+				return nil
+			}
 
-			case 1:
-				// One instance found, ask for confirmation
+			// Get flag values
+			specifiedInstanceID, _ := cmd.Flags().GetString("instance")
+			terminateAll, _ := cmd.Flags().GetBool("all")
+
+			// Check if both --all and --instance flags are specified
+			if specifiedInstanceID != "" && terminateAll {
+				common.LogError("Cannot specify both --all and --instance flags")
+				return fmt.Errorf("cannot specify both --all and --instance flags")
+			}
+
+			// If instance ID is specified, find and terminate that specific instance
+			if specifiedInstanceID != "" {
+				var found bool
+				var targetInstance int
+
+				for i, instance := range instances {
+					if *instance.InstanceId == specifiedInstanceID {
+						targetInstance = i
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					common.LogError("No instance with ID %s found with project tag: %s", specifiedInstanceID, projectTag)
+					fmt.Printf("No instance with ID %s found with project tag: %s\n", specifiedInstanceID, projectTag)
+					return nil
+				}
+
+				fmt.Println("Found the specified instance:")
+				fmt.Println(ec2Client.GetInstanceDetails(instances[targetInstance]))
+
+				// Ask for confirmation
+				fmt.Print("Do you want to terminate this instance? (yes/no): ")
+				var response string
+				fmt.Scanln(&response)
+
+				if strings.ToLower(response) == "yes" {
+					// Terminate the instance
+					err := ec2Client.TerminateInstance(specifiedInstanceID)
+					if err != nil {
+						return fmt.Errorf("failed to terminate instance: %v", err)
+					}
+					fmt.Println("Instance termination initiated successfully.")
+				} else {
+					fmt.Println("Instance termination cancelled.")
+				}
+
+				return nil
+			}
+
+			// If --all flag is specified, terminate all instances
+			if terminateAll {
+				fmt.Printf("Found %d instances with project tag %s:\n\n", len(instances), projectTag)
+				for _, instance := range instances {
+					fmt.Println(ec2Client.GetInstanceDetails(instance))
+					fmt.Println("---")
+				}
+
+				// Ask for confirmation
+				fmt.Printf("Do you want to terminate all %d instances? (yes/no): ", len(instances))
+				var response string
+				fmt.Scanln(&response)
+
+				if strings.ToLower(response) == "yes" {
+					// Terminate all instances
+					for _, instance := range instances {
+						instanceID := *instance.InstanceId
+						err := ec2Client.TerminateInstance(instanceID)
+						if err != nil {
+							fmt.Printf("Failed to terminate instance %s: %v\n", instanceID, err)
+							continue
+						}
+						fmt.Printf("Instance %s termination initiated successfully.\n", instanceID)
+					}
+				} else {
+					fmt.Println("Instance termination cancelled.")
+				}
+
+				return nil
+			}
+
+			// Handle single instance case
+			if len(instances) == 1 {
 				instance := instances[0]
 				fmt.Println("Found one instance with the specified project tag:")
 				fmt.Println(ec2Client.GetInstanceDetails(instance))
@@ -235,7 +317,8 @@ func main() {
 
 				if strings.ToLower(response) == "yes" {
 					// Terminate the instance
-					err := ec2Client.TerminateInstance(*instance.InstanceId)
+					instanceID := *instance.InstanceId
+					err := ec2Client.TerminateInstance(instanceID)
 					if err != nil {
 						return fmt.Errorf("failed to terminate instance: %v", err)
 					}
@@ -244,19 +327,68 @@ func main() {
 					fmt.Println("Instance termination cancelled.")
 				}
 
-			default:
-				// Multiple instances found
-				fmt.Printf("Found %d instances with the specified project tag:\n\n", len(instances))
-				for _, instance := range instances {
-					fmt.Println(ec2Client.GetInstanceDetails(instance))
-					fmt.Println("---")
+				return nil
+			}
+
+			// Multiple instances found and no flags specified - interactive selection
+			fmt.Printf("More than one instance matches the `project=%s` tag:\n\n", projectTag)
+			for _, instance := range instances {
+				fmt.Println(ec2Client.GetInstanceDetails(instance))
+				fmt.Println("---")
+			}
+
+			// List instance IDs for selection
+			fmt.Println("Which one would you like to terminate:")
+			for i, instance := range instances {
+				fmt.Printf("%d) %s\n", i+1, *instance.InstanceId)
+			}
+
+			// Get user selection
+			fmt.Print("\nPlease choose one (or simply Enter to exit): ")
+			var selection string
+			fmt.Scanln(&selection)
+
+			// Handle empty input (exit)
+			if selection == "" {
+				fmt.Println("No instance selected. Exiting.")
+				return nil
+			}
+
+			// Parse selection
+			var selectionNum int
+			_, err = fmt.Sscanf(selection, "%d", &selectionNum)
+			if err != nil || selectionNum < 1 || selectionNum > len(instances) {
+				return fmt.Errorf("invalid selection: %s", selection)
+			}
+
+			// Get selected instance
+			selectedInstance := instances[selectionNum-1]
+			selectedInstanceID := *selectedInstance.InstanceId
+			fmt.Printf("You selected instance %s\n", selectedInstanceID)
+
+			// Ask for confirmation
+			fmt.Print("Do you want to terminate this instance? (yes/no): ")
+			var response string
+			fmt.Scanln(&response)
+
+			if strings.ToLower(response) == "yes" {
+				// Terminate the instance
+				err := ec2Client.TerminateInstance(selectedInstanceID)
+				if err != nil {
+					return fmt.Errorf("failed to terminate instance: %v", err)
 				}
-				fmt.Println("Multiple instances found. Please specify a unique instance to terminate.")
+				fmt.Println("Instance termination initiated successfully.")
+			} else {
+				fmt.Println("Instance termination cancelled.")
 			}
 
 			return nil
 		},
 	}
+
+	// Add teardown-specific flags
+	teardownCmd.Flags().String("instance", "", "Instance ID to terminate (must match project tag)")
+	teardownCmd.Flags().Bool("all", false, "Terminate all instances with matching project tag")
 
 	// Add commands to root
 	rootCmd.AddCommand(setupCmd)
