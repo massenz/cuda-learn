@@ -143,13 +143,6 @@ Important Links:
 
 The project includes a Makefile for building CUDA C++ code. The build system handles compilation and linking of CUDA source files.
 
-## TODO
-
-Future Improvements:
-- [ ] Move GitHub private key storage from local file to AWS Secrets Manager
-  - This will improve security and enable direct access from EC2 instances
-  - Currently, the key is stored locally and uploaded via scp in setup-ec2.sh
-
 ## Prerequisites
 
 - AWS CLI configured with appropriate credentials
@@ -177,4 +170,4 @@ Future Improvements:
 
 ## License
 
-[Add your license information here]
+This project is release under the Apache 2.0 License, see the LICENSE file in this directory for full details.
