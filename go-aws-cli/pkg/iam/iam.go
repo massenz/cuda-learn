@@ -56,12 +56,14 @@ func (i *IAMClient) SetupEC2Role(projectTag string) (string, error) {
 
 	// Create role if it doesn't exist
 	if roleArn == "" {
-		common.LogInfo("Creating IAM role: %s", roleName)
+		common.LogInfo("Creating IAM role", map[string]string{"role_name": roleName})
+		common.UserMessage(fmt.Sprintf("Creating IAM role: %s", roleName))
 		roleArn, err = i.createEC2Role(roleName, projectTag)
 		if err != nil {
 			return "", fmt.Errorf("failed to create role: %w", err)
 		}
-		common.LogSuccess("Created IAM role: %s with ARN: %s", roleName, roleArn)
+		common.LogSuccess("Created IAM role", map[string]string{"role_name": roleName, "role_arn": roleArn})
+		common.UserMessage(fmt.Sprintf("Created IAM role: %s with ARN: %s", roleName, roleArn))
 
 		// Attach policies to the role
 		err = i.attachPolicyToRole(roleName, "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore")
@@ -73,9 +75,11 @@ func (i *IAMClient) SetupEC2Role(projectTag string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to attach Secrets Manager policy: %w", err)
 		}
-		common.LogInfo("Attached policies to role: %s", roleName)
+		common.LogInfo("Attached policies to role", map[string]string{"role_name": roleName})
+		common.UserMessage(fmt.Sprintf("Attached policies to role: %s", roleName))
 	} else {
-		common.LogInfo("Found existing IAM role: %s with ARN: %s", roleName, roleArn)
+		common.LogInfo("Found existing IAM role", map[string]string{"role_name": roleName, "role_arn": roleArn})
+		common.UserMessage(fmt.Sprintf("Found existing IAM role: %s with ARN: %s", roleName, roleArn))
 	}
 
 	// Check if instance profile exists
@@ -86,14 +90,17 @@ func (i *IAMClient) SetupEC2Role(projectTag string) (string, error) {
 
 	// Create instance profile if it doesn't exist
 	if profileArn == "" {
-		common.LogInfo("Creating IAM instance profile: %s", profileName)
+		common.LogInfo("Creating IAM instance profile", map[string]string{"profile_name": profileName})
+		common.UserMessage(fmt.Sprintf("Creating IAM instance profile: %s", profileName))
 		profileArn, err = i.createInstanceProfile(profileName, roleName)
 		if err != nil {
 			return "", fmt.Errorf("failed to create instance profile: %w", err)
 		}
-		common.LogSuccess("Created IAM instance profile: %s with ARN: %s", profileName, profileArn)
+		common.LogSuccess("Created IAM instance profile", map[string]string{"profile_name": profileName, "profile_arn": profileArn})
+		common.UserMessage(fmt.Sprintf("Created IAM instance profile: %s with ARN: %s", profileName, profileArn))
 	} else {
-		common.LogInfo("Found existing IAM instance profile: %s with ARN: %s", profileName, profileArn)
+		common.LogInfo("Found existing IAM instance profile", map[string]string{"profile_name": profileName, "profile_arn": profileArn})
+		common.UserMessage(fmt.Sprintf("Found existing IAM instance profile: %s with ARN: %s", profileName, profileArn))
 	}
 
 	return profileArn, nil

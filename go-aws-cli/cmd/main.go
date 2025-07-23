@@ -26,6 +26,17 @@ func main() {
 		Use:   "cuda-learn",
 		Short: "AWS CLI tool for CUDA-Learn project",
 		Long:  `A CLI tool to create and manage AWS infrastructure for CUDA-Learn project.`,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Get verbose flag
+			verbose, _ := cmd.Flags().GetBool("verbose")
+
+			// Initialize logger
+			if err := common.InitLogger(verbose); err != nil {
+				return fmt.Errorf("failed to initialize logger: %w", err)
+			}
+
+			return nil
+		},
 	}
 
 	// Define flags
@@ -37,6 +48,7 @@ func main() {
 	var instanceType string
 	var ghAuthKeyPath string
 	var ghAuthKeyName string
+	var verbose bool
 
 	// Set default values
 	rootCmd.PersistentFlags().StringVar(&region, "region", "us-west-2", "AWS region")
@@ -47,6 +59,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&instanceType, "instance-type", "g4dn.xlarge", "EC2 instance type")
 	rootCmd.PersistentFlags().StringVar(&ghAuthKeyPath, "gh-auth", "", "Path to PEM key for GitHub authentication")
 	rootCmd.PersistentFlags().StringVar(&ghAuthKeyName, "gh-auth-key-name", "gh-auth", "Name for GitHub authentication key in SecretsManager")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging to console")
 
 	// Create setup command (sets up both VPC and EC2)
 	var setupCmd = &cobra.Command{
@@ -217,7 +230,8 @@ func main() {
 
 			// Check if no instances found
 			if len(instances) == 0 {
-				common.LogError("No instances found with project tag: %s", projectTag)
+				errMsg := fmt.Errorf("no instances found with project tag: %s", projectTag)
+				common.LogError(errMsg, "")
 				fmt.Printf("No instances found with project tag: %s\n", projectTag)
 				return nil
 			}
@@ -228,8 +242,9 @@ func main() {
 
 			// Check if both --all and --instance flags are specified
 			if specifiedInstanceID != "" && terminateAll {
-				common.LogError("Cannot specify both --all and --instance flags")
-				return fmt.Errorf("cannot specify both --all and --instance flags")
+				err := fmt.Errorf("cannot specify both --all and --instance flags")
+				common.LogError(err, "Invalid flag combination")
+				return err
 			}
 
 			// If instance ID is specified, find and terminate that specific instance
@@ -246,7 +261,8 @@ func main() {
 				}
 
 				if !found {
-					common.LogError("No instance with ID %s found with project tag: %s", specifiedInstanceID, projectTag)
+					errMsg := fmt.Errorf("no instance with ID %s found with project tag: %s", specifiedInstanceID, projectTag)
+					common.LogError(errMsg, "Instance not found")
 					fmt.Printf("No instance with ID %s found with project tag: %s\n", specifiedInstanceID, projectTag)
 					return nil
 				}
