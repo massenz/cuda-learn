@@ -63,6 +63,7 @@ You can run the CLI tool directly with various flags:
 - `setup`: Sets up both VPC and EC2 infrastructure
 - `vpc`: Sets up only VPC infrastructure
 - `instance`: Sets up only EC2 instance (requires VPC to exist)
+- `teardown`: Terminates EC2 instances with the specified project tag
 
 #### Available Flags
 
@@ -72,6 +73,15 @@ You can run the CLI tool directly with various flags:
 - `--subnet-cidr`: Subnet CIDR block (default: 10.0.1.0/24)
 - `--key-name`: SSH key name (default: gpu-key)
 - `--instance-type`: EC2 instance type (default: g4dn.xlarge)
+
+#### Teardown Command Flags
+
+The `teardown` command has additional flags for more control:
+
+- `--instance`: Specifies an instance ID to terminate (must match the project tag)
+- `--all`: Terminates all instances with matching project tag
+
+If neither flag is specified and multiple instances match the project tag, an interactive selection menu will be displayed.
 
 ## Connecting to the EC2 Instance
 
