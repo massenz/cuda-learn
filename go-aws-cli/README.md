@@ -194,6 +194,58 @@ Global Flags:
       --vpc-cidr string             VPC CIDR block (default "10.0.0.0/16")
 ```
 
+## Logging
+
+The CLI uses a structured logging system based on [zerolog](https://github.com/rs/zerolog) to provide detailed information about operations while maintaining a clean user interface.
+
+### Log File
+
+All logs are written to a log file located at:
+```
+~/.cuda-learn/logs/cuda-learn.log
+```
+
+This file is created automatically when the CLI is run. The logs include timestamps and are structured in JSON format for easy parsing and analysis.
+
+### Verbose Mode
+
+By default, logs are only written to the log file, and the user sees simplified progress messages. To enable verbose mode and see detailed logs in the console, use the `-v` or `--verbose` flag:
+
+```
+./build/cuda-learn setup --verbose
+```
+
+In verbose mode, all log messages are displayed in the console in addition to being written to the log file.
+
+### Logging Functions
+
+The CLI uses the following logging functions internally:
+
+- **LogInfo**: Logs informational messages with optional key-value pairs
+  ```
+  common.LogInfo("Creating VPC", map[string]string{"vpc_id": vpcID})
+  ```
+
+- **LogError**: Logs error messages with the error object and an optional message
+  ```
+  common.LogError(err, "Failed to create VPC")
+  ```
+
+- **LogSuccess**: Logs success messages with optional key-value pairs (adds a "[SUCCESS]" prefix and "status=success" field)
+  ```
+  common.LogSuccess("Created VPC", map[string]string{"vpc_id": vpcID})
+  ```
+
+### User Messages
+
+When not in verbose mode, the CLI displays simplified progress messages to the user using the `UserMessage` function:
+
+```
+common.UserMessage(fmt.Sprintf("Created VPC: %s", vpcID))
+```
+
+These messages are prefixed with `..` to indicate progress and provide a clean, user-friendly interface.
+
 ## Development
 
 ### Project Structure

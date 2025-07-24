@@ -52,7 +52,8 @@ func (v *VPCClient) SetupVPC(projectTag, vpcCidr, subnetCidr string) (string, st
 
 	// If VPC exists, find subnet
 	if vpcID != "" {
-		common.LogInfo("Found existing VPC: %s", vpcID)
+		common.LogInfo("Found existing VPC", map[string]string{"vpc_id": vpcID})
+		common.UserMessage(fmt.Sprintf("Found existing VPC: %s", vpcID))
 
 		// Find subnet in the VPC
 		subnetID, err := v.findSubnetByTag(vpcID, projectTag)
@@ -64,12 +65,14 @@ func (v *VPCClient) SetupVPC(projectTag, vpcCidr, subnetCidr string) (string, st
 			return "", "", "", fmt.Errorf("no subnet found in VPC %s with tag project=%s", vpcID, projectTag)
 		}
 
-		common.LogInfo("Found existing Subnet: %s", subnetID)
+		common.LogInfo("Found existing Subnet", map[string]string{"subnet_id": subnetID})
+		common.UserMessage(fmt.Sprintf("Found existing Subnet: %s", subnetID))
 		return vpcID, subnetID, profileArn, nil
 	}
 
 	// Create new VPC
-	common.LogInfo("No existing VPC found. Creating new one...")
+	common.LogInfo("No existing VPC found. Creating new one...", nil)
+	common.UserMessage("Creating new VPC")
 	vpcID, err = v.createVPC(projectTag, vpcCidr)
 	if err != nil {
 		return "", "", "", fmt.Errorf("error creating VPC: %w", err)
@@ -185,7 +188,8 @@ func (v *VPCClient) createVPC(projectTag, cidrBlock string) (string, error) {
 		return "", fmt.Errorf("failed to tag VPC: %w", err)
 	}
 
-	common.LogSuccess("Created VPC: %s", vpcID)
+	common.LogSuccess("Created VPC", map[string]string{"vpc_id": vpcID})
+	common.UserMessage(fmt.Sprintf("Created VPC: %s", vpcID))
 	return vpcID, nil
 }
 
@@ -220,7 +224,8 @@ func (v *VPCClient) createSubnet(vpcID, projectTag, cidrBlock string) (string, e
 		return "", fmt.Errorf("failed to tag subnet: %w", err)
 	}
 
-	common.LogSuccess("Created Subnet: %s", subnetID)
+	common.LogSuccess("Created Subnet", map[string]string{"subnet_id": subnetID})
+	common.UserMessage(fmt.Sprintf("Created Subnet: %s", subnetID))
 	return subnetID, nil
 }
 
@@ -243,7 +248,8 @@ func (v *VPCClient) createAndAttachInternetGateway(vpcID string) (string, error)
 		return "", fmt.Errorf("failed to attach internet gateway: %w", err)
 	}
 
-	common.LogSuccess("Created and attached Internet Gateway: %s", igwID)
+	common.LogSuccess("Created and attached Internet Gateway", map[string]string{"igw_id": igwID})
+	common.UserMessage(fmt.Sprintf("Created and attached Internet Gateway: %s", igwID))
 	return igwID, nil
 }
 
@@ -278,7 +284,8 @@ func (v *VPCClient) createRouteTable(vpcID, subnetID, igwID string) (string, err
 		return "", fmt.Errorf("failed to associate route table: %w", err)
 	}
 
-	common.LogSuccess("Created Route Table: %s and associated with Subnet: %s", rtbID, subnetID)
+	common.LogSuccess("Created Route Table and associated with Subnet", map[string]string{"rtb_id": rtbID, "subnet_id": subnetID})
+	common.UserMessage(fmt.Sprintf("Created Route Table: %s and associated with Subnet: %s", rtbID, subnetID))
 	return rtbID, nil
 }
 
@@ -292,7 +299,8 @@ func (v *VPCClient) enableAutoAssignPublicIP(subnetID string) error {
 		return fmt.Errorf("failed to enable auto-assign public IP: %w", err)
 	}
 
-	common.LogSuccess("Enabled auto-assign public IP for Subnet: %s", subnetID)
+	common.LogSuccess("Enabled auto-assign public IP for Subnet", map[string]string{"subnet_id": subnetID})
+	common.UserMessage(fmt.Sprintf("Enabled auto-assign public IP for Subnet: %s", subnetID))
 	return nil
 }
 
@@ -305,12 +313,14 @@ func (v *VPCClient) CreateSecurityGroup(vpcID, projectTag string) (string, error
 	}
 
 	if sgID != "" {
-		common.LogInfo("Found existing Security Group: %s", sgID)
+		common.LogInfo("Found existing Security Group", map[string]string{"sg_id": sgID})
+		common.UserMessage(fmt.Sprintf("Found existing Security Group: %s", sgID))
 		return sgID, nil
 	}
 
 	// Create security group
-	common.LogInfo("Creating Security Group and enabling SSH access...")
+	common.LogInfo("Creating Security Group and enabling SSH access...", nil)
+	common.UserMessage("Creating Security Group and enabling SSH access")
 	sgResp, err := v.client.CreateSecurityGroup(context.TODO(), &ec2.CreateSecurityGroupInput{
 		GroupName:   aws.String("ssh-sg"),
 		Description: aws.String("SSH access"),
@@ -334,7 +344,8 @@ func (v *VPCClient) CreateSecurityGroup(vpcID, projectTag string) (string, error
 		return "", fmt.Errorf("failed to authorize security group ingress: %w", err)
 	}
 
-	common.LogSuccess("Created SG for SSH Access: %s", sgID)
+	common.LogSuccess("Created SG for SSH Access", map[string]string{"sg_id": sgID})
+	common.UserMessage(fmt.Sprintf("Created SG for SSH Access: %s", sgID))
 	return sgID, nil
 }
 

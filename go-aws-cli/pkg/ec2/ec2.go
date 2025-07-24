@@ -48,27 +48,35 @@ func NewEC2Client(cfg aws.Config) *EC2Client {
 }
 
 // SetupEC2 creates an EC2 instance
-func (e *EC2Client) SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType, instanceProfileArn string) (string, string, error) {
+func (e *EC2Client) SetupEC2(
+	projectTag, vpcID, subnetID, keyName, instanceType, instanceProfileArn string) (
+	string, string, error) {
 	// Create or find security group
 	sgID, err := e.vpcClient.CreateSecurityGroup(vpcID, projectTag)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create security group: %w", err)
 	}
-	common.LogInfo("SSH Access enabled (Security Group: %s)", sgID)
+	common.LogInfo("SSH Access enabled", map[string]string{"security_group": sgID})
+	common.UserMessage(fmt.Sprintf("SSH Access enabled (Security Group: %s)", sgID))
 
 	// Create or find key pair
 	err = e.setupKeyPair(keyName)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to setup key pair: %w", err)
 	}
-	common.LogInfo("Key pair in private/%s.pem", keyName)
+	common.LogInfo("Key pair created",
+		map[string]string{"path": fmt.Sprintf("private/%s.pem", keyName)})
+	common.UserMessage(fmt.Sprintf("Key pair in private/%s.pem", keyName))
 
 	// Find AMI
 	amiID, amiName, err := e.findLatestAMI()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to find AMI: %w", err)
 	}
-	common.LogInfo("Reserving an EC2 Instance (%s), AMI: %s (%s)", instanceType, amiID, amiName)
+	common.LogInfo("Reserving EC2 Instance",
+		map[string]string{"instance_type": instanceType, "ami_id": amiID, "ami_name": amiName})
+	common.UserMessage(fmt.Sprintf("Reserving an EC2 Instance (%s), AMI: %s (%s)",
+		instanceType, amiID, amiName))
 
 	// Launch instance
 	instanceID, err := e.launchInstance(
@@ -76,22 +84,31 @@ func (e *EC2Client) SetupEC2(projectTag, vpcID, subnetID, keyName, instanceType,
 	if err != nil {
 		return "", "", fmt.Errorf("failed to launch instance: %w", err)
 	}
-	common.LogInfo("Attached IAM Instance Profile: %s to instance", instanceProfileArn)
-	common.LogInfo("Launched instance: %s with project tag: %s", instanceID, projectTag)
+	common.LogInfo("Attached IAM Instance Profile",
+		map[string]string{"profile": instanceProfileArn, "instance": instanceID})
+	common.UserMessage(fmt.Sprintf("Attached IAM Instance Profile: %s to instance",
+		instanceProfileArn))
+
+	common.LogInfo("Launched instance",
+		map[string]string{"instance_id": instanceID, "project_tag": projectTag})
+	common.UserMessage(fmt.Sprintf("Launched instance: %s with project tag: %s",
+		instanceID, projectTag))
 
 	// Wait for instance to be running
 	err = e.waitForInstanceRunning(instanceID)
 	if err != nil {
 		return "", "", fmt.Errorf("error waiting for instance to be running: %w", err)
 	}
-	common.LogSuccess("Instance %s is now running.", instanceID)
+	common.LogSuccess("Instance is now running", map[string]string{"instance_id": instanceID})
+	common.UserMessage(fmt.Sprintf("Instance %s is now running", instanceID))
 
 	// Get public IP
 	publicIP, err := e.getInstancePublicIP(instanceID)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get instance public IP: %w", err)
 	}
-	common.LogInfo("Public IP: %s", publicIP)
+	common.LogInfo("Retrieved public IP", map[string]string{"ip": publicIP})
+	common.UserMessage(fmt.Sprintf("Public IP: %s", publicIP))
 
 	return instanceID, publicIP, nil
 }
@@ -105,7 +122,8 @@ func (e *EC2Client) setupKeyPair(keyName string) error {
 	}
 
 	if keyID != "" {
-		common.LogInfo("Found existing key pair: %s", keyID)
+		common.LogInfo("Found existing key pair", map[string]string{"key_id": keyID})
+		common.UserMessage(fmt.Sprintf("Found existing key pair: %s", keyID))
 		return nil
 	}
 
@@ -135,7 +153,9 @@ func (e *EC2Client) setupKeyPair(keyName string) error {
 		return fmt.Errorf("failed to store key in SecretsManager: %w", err)
 	}
 
-	common.LogSuccess("Created SSH key %s (%s)", keyName, keyID)
+	common.LogSuccess("Created SSH key",
+		map[string]string{"key_name": keyName, "key_id": keyID})
+	common.UserMessage(fmt.Sprintf("Created SSH key: %s", keyName))
 	return nil
 }
 
@@ -272,10 +292,12 @@ func (e *EC2Client) StoreKeyPEMInSecretsManager(keyName string, privateKeyPEM []
 		if err != nil {
 			return fmt.Errorf("failed to create secret: %w", err)
 		}
-		common.LogSuccess("Stored key in SecretsManager: %s", secretName)
+		common.LogSuccess("Stored key in SecretsManager",
+			map[string]string{"secret_name": secretName})
 	} else {
 		// Secret already exists, do not overwrite
-		common.LogInfo("Secret %s already exists in SecretsManager, not overwriting", secretName)
+		common.LogInfo("Secret already exists in SecretsManager, not overwriting",
+			map[string]string{"secret_name": secretName})
 	}
 
 	return nil
@@ -310,12 +332,13 @@ func (e *EC2Client) storeKeyInSecretsManager(keyName string, privateKey *rsa.Pri
 		if err != nil {
 			return fmt.Errorf("failed to create secret: %w", err)
 		}
-		common.LogSuccess("Stored key in SecretsManager: %s", secretName)
+		common.LogSuccess("Stored key in SecretsManager",
+			map[string]string{"secret_name": secretName})
 	} else {
 		// Secret already exists, do not overwrite
-		common.LogInfo("Secret %s already exists in SecretsManager, not overwriting", secretName)
+		common.LogInfo("Secret already exists in SecretsManager, not overwriting",
+			map[string]string{"secret_name": secretName})
 	}
-
 	return nil
 }
 
@@ -384,7 +407,7 @@ func (e *EC2Client) launchInstance(amiID, instanceType, keyName, sgID, subnetID,
 
 	// Add IAM instance profile to enable access to AWS services.
 	profileName := iam.EC2InstanceProfileName(projectTag)
-	common.LogInfo("Attaching IAM instance profile: %s", profileName)
+	common.LogInfo("Attaching IAM instance profile", map[string]string{"profile_name": profileName})
 	input.IamInstanceProfile = &types.IamInstanceProfileSpecification{
 		Name: aws.String(profileName),
 	}
@@ -494,6 +517,6 @@ func (e *EC2Client) TerminateInstance(instanceID string) error {
 		return fmt.Errorf("failed to terminate instance: %w", err)
 	}
 
-	common.LogSuccess("Instance %s termination initiated", instanceID)
+	common.LogSuccess("Instance termination initiated", map[string]string{"instance_id": instanceID})
 	return nil
 }
