@@ -4,6 +4,7 @@ project(cuda-learn LANGUAGES CXX CUDA)
 # Set CUDA standard
 set(CMAKE_CUDA_STANDARD 14)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(TARGET_DIR "${CMAKE_BINARY_DIR}/bin")
 
 # Find CUDA package
 find_package(CUDA REQUIRED)
@@ -16,16 +17,16 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O2 -diag-suppress 2361")
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 
 # Add executable targets
-add_executable(gpu-props gpu-props.cu)
+add_executable(gpu-props src/gpu-props.cu)
 set_target_properties(gpu-props PROPERTIES
-    CUDA_SEPARABLE_COMPILATION ON
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build
+CUDA_SEPARABLE_COMPILATION ON
+RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
 )
 
-add_executable(mat-gen mat_gen.cu)
+add_executable(mat-gen src/mat_gen.cu)
 set_target_properties(mat-gen PROPERTIES
-    CUDA_SEPARABLE_COMPILATION ON
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build
+CUDA_SEPARABLE_COMPILATION ON
+RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
 )
 
 # Link against CUDA libraries
@@ -36,3 +37,4 @@ target_link_libraries(mat-gen ${CUDA_LIBRARIES} ${CUDA_curand_LIBRARY})
 message(STATUS "CUDA version: ${CUDA_VERSION}")
 message(STATUS "CUDA libraries: ${CUDA_LIBRARIES}")
 message(STATUS "CUDA include directories: ${CUDA_INCLUDE_DIRS}")
+message(STATUS "Binaries in: ${TARGET_DIR}")
