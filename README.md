@@ -85,20 +85,26 @@ Important Links:
   - `pkg/`: Contains packages for VPC, EC2, and common utilities
 - `build/`: Contains compiled binaries
   - `cuda-learn`: The CLI tool binary
-  - `matrix_gen`: CUDA sample application
-- `Makefile`: Build configuration for both CUDA code and CLI tool
+  - `cuda/`: CUDA sample applications built with CMake
+- `Makefile`: Build configuration for CLI tool and CMake targets
 - `src/`: Sample CUDA C++ code (demonstration purposes)
+  - `CMakeLists.txt`: CMake configuration for building CUDA code
 
 ## Build System
 
-The project includes a Makefile for building CUDA C++ code. The build system handles compilation and linking of CUDA source files.
+The project uses CMake for building CUDA C++ code. The build system handles compilation and linking of CUDA source files without requiring the user to specify the source file each time.
 
-The two main commands are `build` and `run` (they can only be run on the GPU instance, as they require `nvcc`, the CUDA compiler) and require specifying the `SRC` file to compile:
+To build all CUDA examples (they can only be run on the GPU instance, as they require `nvcc`, the CUDA compiler):
 
 ```shell
 # On the EC2 instance
-$ make SRC=gpu-props.cu run
+$ make cuda-build
 ```
+
+This will build all CUDA examples in the `src/` directory and place the executables in the `build/cuda/` directory. The current examples include:
+
+- `gpu-props`: Displays properties of available CUDA devices
+- `mat-gen`: Generates a random matrix using CUDA
 
 We recommend using an IDE such as VSCode connected remotely to the EC2 instance, please see [this blog](https://codetrips.com/2025/07/17/cuda-development-on-aws-gpu-instances/) for more details.
 
