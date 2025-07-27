@@ -12,7 +12,7 @@ GOARCH ?= $(shell go env GOARCH)
 CLI_TARGET = build/cuda-learn_${VERSION}_${GOARCH}_cli
 CLI_SRC = go-aws-cli/cmd
 
-.PHONY: all cuda-build cuda-clean clean cli vpc instance help
+.PHONY: all build clean cli vpc instance help
 
 ##@ General targets
 help: ## Display this help.
