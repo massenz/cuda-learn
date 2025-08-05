@@ -10,40 +10,6 @@ cmake_minimum_required(VERSION 3.18)
 # Option to build CPU-only version
 option(CPU_ONLY "Build CPU-only version" OFF)
 
-<<<<<<< Updated upstream
-# Find CUDA package
-find_package(CUDA REQUIRED)
-include_directories(${CUDA_INCLUDE_DIRS})
-
-# Set CUDA flags (similar to the ones in the Makefile)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O2 -diag-suppress 2361")
-
-# Create build directory if it doesn't exist
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/build)
-
-# Add executable targets
-add_executable(gpu-props src/gpu-props.cu)
-set_target_properties(gpu-props PROPERTIES
-CUDA_SEPARABLE_COMPILATION ON
-RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
-)
-
-add_executable(mat-gen src/mat_gen.cu)
-set_target_properties(mat-gen PROPERTIES
-CUDA_SEPARABLE_COMPILATION ON
-RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
-)
-
-# Link against CUDA libraries
-target_link_libraries(gpu-props ${CUDA_LIBRARIES})
-target_link_libraries(mat-gen ${CUDA_LIBRARIES} ${CUDA_curand_LIBRARY})
-
-# Print information about the build
-message(STATUS "CUDA version: ${CUDA_VERSION}")
-message(STATUS "CUDA libraries: ${CUDA_LIBRARIES}")
-message(STATUS "CUDA include directories: ${CUDA_INCLUDE_DIRS}")
-message(STATUS "Binaries in: ${TARGET_DIR}")
-=======
 if(CPU_ONLY)
     project(cuda-learn LANGUAGES CXX)
     include(${CMAKE_SOURCE_DIR}/cmake/CpuBuild.cmake)
@@ -52,4 +18,3 @@ else()
     project(cuda-learn LANGUAGES CXX CUDA)
     include(${CMAKE_SOURCE_DIR}/cmake/Cuda.cmake)
 endif()
->>>>>>> Stashed changes
