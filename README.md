@@ -133,6 +133,54 @@ We recommend using an IDE such as VSCode connected remotely to the EC2 instance,
 3. SSH into the instance using the provided connection details
 4. Clone this repository and build the CUDA code using make
 
+## Building the Application
+
+The application can be built either with CUDA support (for GPU-enabled machines) or in CPU-only mode.
+Both builds use CMake as the build system.
+
+### Prerequisites
+
+- CMake 3.18 or later
+- For GPU builds:
+  - CUDA toolkit and compatible GPU
+  - NVIDIA CUDA-capable GPU
+- For CPU-only builds:
+  - Clang++ compiler
+
+### Build Options
+
+#### GPU Build (Default)
+
+For machines with CUDA support, simply run:
+
+    make build
+
+This will compile the CUDA code with full GPU support. The executable will be created in the `build/bin` directory.
+
+#### CPU-Only Build
+
+For development on machines without CUDA support, use:
+
+    make cpu-only
+
+This will compile the same source code but without CUDA dependencies, creating a CPU-only version.
+The executable will be created in `build/bin` with a `-cpu` suffix.
+
+### Build Organization
+
+- Source files are in `src/`
+- CMake configuration files are in `cmake/`
+- All build artifacts are created in `build/`
+- Build configurations are mutually exclusive - you cannot have both CPU and GPU builds simultaneously
+
+### Cleaning
+
+To clean all build artifacts:
+
+    make clean
+
+This will remove the entire `build` directory, allowing for a fresh build.
+
 ## License
 
 This project is release under the Apache 2.0 License, see the LICENSE file in this directory for full details.

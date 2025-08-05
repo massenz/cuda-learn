@@ -5,12 +5,11 @@
 #
 # Author: Marco Massenzio (marco@alertavert.com)
 
-cmake_minimum_required(VERSION 3.18)
+# Set CUDA standard
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(TARGET_DIR "${CMAKE_BINARY_DIR}/bin")
 
-# Option to build CPU-only version
-option(CPU_ONLY "Build CPU-only version" OFF)
-
-<<<<<<< Updated upstream
 # Find CUDA package
 find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})
@@ -24,15 +23,22 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/build)
 # Add executable targets
 add_executable(gpu-props src/gpu-props.cu)
 set_target_properties(gpu-props PROPERTIES
-CUDA_SEPARABLE_COMPILATION ON
-RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
+    CUDA_SEPARABLE_COMPILATION ON
+    RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
 )
 
 add_executable(mat-gen src/mat_gen.cu)
 set_target_properties(mat-gen PROPERTIES
-CUDA_SEPARABLE_COMPILATION ON
-RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
+    CUDA_SEPARABLE_COMPILATION ON
+    RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
+    )
+
+add_executable(id-list-pool src/id-list-map.cu)
+set_target_properties(id-list-pool PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+    RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
 )
+
 
 # Link against CUDA libraries
 target_link_libraries(gpu-props ${CUDA_LIBRARIES})
@@ -43,13 +49,3 @@ message(STATUS "CUDA version: ${CUDA_VERSION}")
 message(STATUS "CUDA libraries: ${CUDA_LIBRARIES}")
 message(STATUS "CUDA include directories: ${CUDA_INCLUDE_DIRS}")
 message(STATUS "Binaries in: ${TARGET_DIR}")
-=======
-if(CPU_ONLY)
-    project(cuda-learn LANGUAGES CXX)
-    include(${CMAKE_SOURCE_DIR}/cmake/CpuBuild.cmake)
-else()
-    message(STATUS "Building with CUDA support")
-    project(cuda-learn LANGUAGES CXX CUDA)
-    include(${CMAKE_SOURCE_DIR}/cmake/Cuda.cmake)
-endif()
->>>>>>> Stashed changes
