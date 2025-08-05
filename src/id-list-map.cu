@@ -33,36 +33,12 @@
  */
 #include <fstream>
 #include <iostream>
-#include <list>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
 
-constexpr u_int16_t CHUNK_SIZE =
-    1024;  // Size of each chunk to read from the file
-
-struct Chunk {
-  int64_t values[CHUNK_SIZE];    // Array to hold the values
-  uint16_t offsets[CHUNK_SIZE];  // Offsets for each value in the chunk
-  uint16_t size = 0;             // Number of valid values in this chunk
-
-  bool hasRoom(uint16_t elements) const { return size + elements < CHUNK_SIZE; }
-  void print() const {
-    std::cout << "Chunk size: " << size << ", values: ";
-    for (uint16_t i = 0; i < size; ++i) {
-        uint16_t start = offsets[i];
-        uint16_t end = (i + 1 < size) ? offsets[i + 1] : CHUNK_SIZE;
-        for (uint16_t j = start; j < end; ++j) {
-            std::cout << values[j] << " ";
-        }
-      std::cout << std::endl;
-    }
-    std::cout << "\n";
-  }
-};
-
-using ListInput = std::list<Chunk>;
+#include "chunks.h"
 
 /**
  * Reads a CSV file containing comma-separated int64 values and converts them
@@ -74,7 +50,7 @@ using ListInput = std::list<Chunk>;
  * @throws std::runtime_error if the file cannot be opened
  * @throws std::invalid_argument if string-to-int64 conversion fails
  */
-std::shared_ptr<ListInput> readInputFile(const std::string& filename) {
+std::shared_ptr<ListInput> readInputFile(const std::string &filename) {
   auto result = std::make_shared<ListInput>();
   std::ifstream file(filename);
 
@@ -88,10 +64,8 @@ std::shared_ptr<ListInput> readInputFile(const std::string& filename) {
 
   while (std::getline(file, line)) {
     if (line.empty()) {
-      continue;  // Skip empty lines
+      continue; // Skip empty lines
     }
-    printf("Processing line: %s\n", line.c_str());
-    std::vector<int64_t> row;
     std::istringstream lineStream(line);
     int64_t value;
 
@@ -101,20 +75,17 @@ std::shared_ptr<ListInput> readInputFile(const std::string& filename) {
     std::vector<int64_t> values;
     // Read space-separated integers until end of line
     while (lineStream >> value) {
-      printf("Processing value: %ld\n", value);
       values.push_back(value);
     }
     if (values.empty()) {
-      continue;  // Skip lines with no values
+      continue; // Skip lines with no values
     }
     if (!currentChunk.hasRoom(values.size())) {
-        std::cout << "Current chunk is full, creating a new one.\n";
-      // If the current chunk is full, add it to the list and create a new one
       result->push_back(currentChunk);
       currentChunk = Chunk();
       currentOffset = 0;
     }
-    currentChunk.offsets[currentChunk.size] = currentOffset;
+    currentChunk.offsets[currentChunk.size] = currentOffset + values.size();
     // Copy values to the current chunk
     for (size_t i = 0; i < values.size(); ++i) {
       currentChunk.values[currentOffset + i] = values[i];
@@ -123,23 +94,13 @@ std::shared_ptr<ListInput> readInputFile(const std::string& filename) {
     currentOffset += values.size();
   }
   // Adding last chunk if it has any values
-    if (currentChunk.size > 0) {
-        std::cout << "Adding last chunk with size: " << currentChunk.size << "\n";
+  if (currentChunk.size > 0) {
     result->push_back(currentChunk);
-    } else {
-        std::cout << "No values in the last chunk, not adding it.\n";
-    }
-std::cout << "Found " << result->size() << " chunks in the file.\n";
-  if (!result->empty()) {
-    std::cout << "CHUNK: " << result->back().size << " values, "
-              << result->back().offsets[0] << " offsets.\n";
   }
-
-
   return result;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   if (argc != 2) {
     std::cerr << "Usage: " << argv[0] << " <input-file>\n";
     return 1;
@@ -147,15 +108,19 @@ int main(int argc, char* argv[]) {
 
   try {
     auto data = readInputFile(argv[1]);
-
+    int lines = 0;
+    int values = 0;
     // Print the data to verify contents
-    for (const auto& chunk : *data) {
-      chunk.print();
+    for (const auto &chunk: *data) {
+      chunk.PrintMetadata();
+      lines += chunk.size;
+      values += chunk.numValues();
     }
 
-    std::cout << "Successfully read " << data->size() << " lines\n";
+    std::cout << "Successfully read " << lines << " lines, containing "
+              << values << " values.\n";
     return 0;
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << "\n";
     return 1;
   }
