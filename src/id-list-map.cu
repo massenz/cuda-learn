@@ -40,65 +40,6 @@
 
 #include "chunks.h"
 
-/**
- * Reads a CSV file containing comma-separated int64 values and converts them
- * into a list of Chunks.
- *
- * @param filename Path to the CSV file to read
- * @return std::shared_ptr to a list of Chunks containing the parsed int64
- * values
- * @throws std::runtime_error if the file cannot be opened
- * @throws std::invalid_argument if string-to-int64 conversion fails
- */
-std::shared_ptr<ListInput> readInputFile(const std::string &filename) {
-  auto result = std::make_shared<ListInput>();
-  std::ifstream file(filename);
-
-  if (!file) {
-    throw std::runtime_error("Could not open file: " + filename);
-  }
-
-  std::string line;
-  Chunk currentChunk;
-  uint16_t currentOffset = 0;
-
-  while (std::getline(file, line)) {
-    if (line.empty()) {
-      continue; // Skip empty lines
-    }
-    std::istringstream lineStream(line);
-    int64_t value;
-
-    // As we don't know how many values there are in the line,
-    // and we won't know if there is enough room in the current chunk,
-    // we will first read them into a temporary vector.
-    std::vector<int64_t> values;
-    // Read space-separated integers until end of line
-    while (lineStream >> value) {
-      values.push_back(value);
-    }
-    if (values.empty()) {
-      continue; // Skip lines with no values
-    }
-    if (!currentChunk.hasRoom(values.size())) {
-      result->push_back(currentChunk);
-      currentChunk = Chunk();
-      currentOffset = 0;
-    }
-    currentChunk.offsets[currentChunk.size] = currentOffset + values.size();
-    // Copy values to the current chunk
-    for (size_t i = 0; i < values.size(); ++i) {
-      currentChunk.values[currentOffset + i] = values[i];
-    }
-    currentChunk.size++;
-    currentOffset += values.size();
-  }
-  // Adding last chunk if it has any values
-  if (currentChunk.size > 0) {
-    result->push_back(currentChunk);
-  }
-  return result;
-}
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {
@@ -115,6 +56,7 @@ int main(int argc, char *argv[]) {
       chunk.PrintMetadata();
       lines += chunk.size;
       values += chunk.numValues();
+      chunk.PrintValues();
     }
 
     std::cout << "Successfully read " << lines << " lines, containing "
