@@ -38,8 +38,38 @@
 #include <string>
 #include <vector>
 
-#include "chunks.h"
+#include <cuda_runtime.h>
 
+#include "boundaries.h"
+#include "chunks.h"
+#include "cudacheck.h"
+
+void prepareBuffers(
+  size_t** d_offsets,
+  int64_t** d_values,
+  const std::shared_ptr<Chunks>& chunks) {
+
+  auto [sizeOffsets, sizeValues] = getTotSizeOffsets(*chunks);
+  CUDA_CHECK(cudaMalloc(d_offsets, sizeOffsets * sizeof(size_t)))
+      << "Failed to allocate device memory for offsets";
+  CUDA_CHECK(cudaMalloc(d_values, sizeValues * sizeof(int64_t)))
+      << "Failed to allocate device memory for values";
+
+  size_t offsetsPos = 0, valuesPos = 0;
+  for (const auto& chunk : *chunks) {
+    CUDA_CHECK(cudaMemcpy(*d_offsets + offsetsPos, chunk.offsets,
+                          chunk.size * sizeof(size_t), 
+                          cudaMemcpyHostToDevice))
+        << "Failed to copy offsets to device";
+    CUDA_CHECK(cudaMemcpy(*d_values + valuesPos, chunk.values,
+                          chunk.numValues() * sizeof(int64_t),
+                          cudaMemcpyHostToDevice))
+        << "Failed to copy values to device";
+    offsetsPos += chunk.size;
+    valuesPos += chunk.numValues();
+  }
+  printf("Prepared buffers: %zu offsets, %zu values\n", sizeOffsets, sizeValues);
+}
 
 int main(int argc, char *argv[]) {
   if (argc != 2) {
@@ -49,18 +79,22 @@ int main(int argc, char *argv[]) {
 
   try {
     auto data = readInputFile(argv[1]);
-    int lines = 0;
-    int values = 0;
+
     // Print the data to verify contents
     for (const auto &chunk: *data) {
       chunk.PrintMetadata();
-      lines += chunk.size;
-      values += chunk.numValues();
       chunk.PrintValues();
     }
 
-    std::cout << "Successfully read " << lines << " lines, containing "
-              << values << " values.\n";
+    auto [samples, values] = getTotSizeOffsets(*data);
+    std::cout << "Successfully read " << samples << " samples, containing "
+              << values << " values in total.\n";
+
+    std::cout << "Preparing buffers for CUDA...\n";
+    size_t *d_offsets = nullptr;
+    int64_t *d_values = nullptr;
+    prepareBuffers(&d_offsets, &d_values, data);
+    
     return 0;
   } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << "\n";

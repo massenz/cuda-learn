@@ -6,7 +6,7 @@
 # Author: Marco Massenzio (marco@alertavert.com)
 
 # Set CUDA standard
-set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(TARGET_DIR "${CMAKE_BINARY_DIR}/bin")
 

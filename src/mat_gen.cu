@@ -11,6 +11,7 @@
 #include <memory>
 
 #include "boundaries.h"
+#include "cudacheck.h"
 #include "fillmatrix.h"
 
 using namespace std;
@@ -35,12 +36,8 @@ void fill(float* mat, uint m, uint n, float mean, float stddev) {
   size_t size = m * n * sizeof(float);
 
   // Allocate device memory
-  cudaError_t err = cudaMalloc(&d_mat, size);
-  if (err != cudaSuccess) {
-    cerr << "Failed to allocate device memory: " << cudaGetErrorString(err)
-         << endl;
-    return;
-  }
+  CUDA_CHECK(cudaMalloc(&d_mat, size))
+      << "Failed to allocate device memory for matrix";
 
   // Configure kernel launch parameters
   // Each block will handle 16x16 threads
@@ -55,35 +52,21 @@ void fill(float* mat, uint m, uint n, float mean, float stddev) {
 
   RectangularCheckStrategy strategy(m, n);
   RectangularCheckStrategy* d_strategy;
-  err = cudaMalloc(&d_strategy, sizeof(RectangularCheckStrategy));
-  if (err != cudaSuccess) {
-    cerr << "Failed to allocate device memory for strategy: "
-         << cudaGetErrorString(err) << endl;
-    cudaFree(d_mat);
-    return;
-  }
-  err = cudaMemcpy(d_strategy, &strategy, sizeof(RectangularCheckStrategy),
-                   cudaMemcpyHostToDevice);
-  if (err != cudaSuccess) {
-    cerr << "Failed to copy strategy to device: " << cudaGetErrorString(err)
-         << endl;
-    cudaFree(d_mat);
-    cudaFree(d_strategy);
-    return;
-  }
+
+  CUDA_CHECK(cudaMalloc(&d_strategy, sizeof(RectangularCheckStrategy)))
+      << "Failed to allocate device memory for strategy";
+  CUDA_CHECK(cudaMemcpy(d_strategy, &strategy, sizeof(RectangularCheckStrategy),
+                        cudaMemcpyHostToDevice))
+      << "Failed to copy strategy to device";
 
   // Launch kernel
   fillMatrixKernel<<<gridDim, blockDim>>>(d_mat, d_strategy, mean, stddev,
                                           time(nullptr));
-
+  cudaFree(d_strategy);
+  
   // Copy result back to host
-  err = cudaMemcpy(mat, d_mat, size, cudaMemcpyDeviceToHost);
-  if (err != cudaSuccess) {
-    cerr << "Failed to copy data from device: " << cudaGetErrorString(err)
-         << endl;
-    cudaFree(d_mat);
-    return;
-  }
+  CUDA_CHECK(cudaMemcpy(mat, d_mat, size, cudaMemcpyDeviceToHost))
+      << "Failed to copy data from device";
 
   // Cleanup
   cudaFree(d_mat);

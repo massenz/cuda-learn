@@ -1,12 +1,15 @@
+// Copyright (c) 2025.  All rights reserved.
 //
-// Created by Marco Massenzio on 8/4/25.
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-
+// Author: Marco Massenzio (marco@alertavert.com)
 #pragma once
 
 #include <iostream>
 #include <list>
 #include <memory>
+#include <tuple>
 
 
 // Size of each chunk to read from the file
@@ -77,4 +80,24 @@ struct Chunk {
 };
 
 using Chunks = std::list<Chunk>;
+
+/**
+ * Reads a text file containing space-separated int64 values and converts them
+ * into a list of Chunks.
+ *
+ * @param filename Path to the CSV file to read
+ * @return std::shared_ptr to a list of Chunks containing the parsed int64
+ * values
+ * @throws std::runtime_error if the file cannot be opened
+ * @throws std::invalid_argument if string-to-int64 conversion fails
+ */
 std::shared_ptr<Chunks> readInputFile(const std::string &filename);
+
+/**
+ * Calculates the total size and number of values in a list of Chunks.
+ *
+ * @param chunks The list of Chunks to analyze
+ * @return A tuple containing the total number of samples (lines) read
+ *         and total number of values, respectively.
+ */
+std::tuple<size_t, size_t> getTotSizeOffsets(const Chunks& chunks);

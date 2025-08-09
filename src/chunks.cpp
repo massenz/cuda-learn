@@ -1,4 +1,9 @@
-// Created by Marco Massenzio on 8/4/25.
+// Copyright (c) 2025.  All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Author: Marco Massenzio (marco@alertavert.com)
 #include "chunks.h"
 
 #include <fstream>
@@ -92,4 +97,18 @@ std::shared_ptr<Chunks> readInputFile(const std::string &filename) {
     result->push_back(currentChunk);
   }
   return result;
+}
+
+
+
+// Return type is std::tuple<type1, type2>
+std::tuple<size_t, size_t> getTotSizeOffsets(const Chunks& chunks) {
+    size_t total_size = 0;
+    size_t total_values = 0;
+    
+    for (const auto& chunk : chunks) {
+        total_size += chunk.size;
+        total_values += chunk.numValues();
+    }
+    return {total_size, total_values};  // C++17 allows this simple return
 }
