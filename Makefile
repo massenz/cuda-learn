@@ -23,6 +23,7 @@ version: ## Display the current version of the project
 	@echo "$(VERSION)"
 
 ##@ CUDA Application
+.PHONY: all build cpu-only
 all: build ## Default target to build CUDA applications
 
 build: ## Build CUDA applications using CMake
