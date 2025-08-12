@@ -12,14 +12,17 @@
 #include <memory>
 
 #include "boundaries.h"
+#include "fillmatrix.h"
 
-__global__ 
+using namespace std;
+
+__global__
 void fillMatrixKernel(float* mat, void* strategy, float mean, float stddev, unsigned long seed) {
 
     // Here we lose the flexibility of polymorphic behavior,
     // as we need to know in advance the type of strategy.
     // However, in kernel functions, we must know in advance the
-    // arrangement of data.
+    // arrangement of data anyway.
     SizeCheck checker { strategy, BoundaryType::Rectangular };
     if (checker()) {
         auto idx = checker.idx();
@@ -28,9 +31,6 @@ void fillMatrixKernel(float* mat, void* strategy, float mean, float stddev, unsi
         mat[idx] = curand_normal(&state) * stddev + mean;
     }
 }
-
-
-using namespace std;
 
 void fill(float* mat, uint m, uint n, float mean = 0.0f, float stddev = 1.0f) {
     float* d_mat;
@@ -48,11 +48,11 @@ void fill(float* mat, uint m, uint n, float mean = 0.0f, float stddev = 1.0f) {
     uint threadsPerBlockDim = 16;
     // The grid will be sized to cover the entire matrix, rows (m)
     // in the y dimension and columns (n) in the x dimension.
-    dim3 gridDim { 
-        static_cast<uint>(ceil(n / threadsPerBlockDim) + 1), 
+    dim3 gridDim {
+        static_cast<uint>(ceil(n / threadsPerBlockDim) + 1),
         static_cast<uint>(ceil(m / threadsPerBlockDim) + 1)};
     dim3 blockDim { threadsPerBlockDim, threadsPerBlockDim };
-    printf("Grid dimensions: %d x %d, Block dimensions: %d x %d\n", 
+    printf("Grid dimensions: %d x %d, Block dimensions: %d x %d\n",
            gridDim.x, gridDim.y, blockDim.x, blockDim.y);
 
     RectangularCheckStrategy strategy(m, n);
@@ -73,10 +73,10 @@ void fill(float* mat, uint m, uint n, float mean = 0.0f, float stddev = 1.0f) {
 
     // Launch kernel
     fillMatrixKernel<<<gridDim, blockDim>>>(
-        d_mat, 
+        d_mat,
         d_strategy,
-        mean, 
-        stddev, 
+        mean,
+        stddev,
         time(nullptr));
 
     // Copy result back to host
@@ -89,31 +89,4 @@ void fill(float* mat, uint m, uint n, float mean = 0.0f, float stddev = 1.0f) {
 
     // Cleanup
     cudaFree(d_mat);
-}
-
-
-int main(int argc, char* argv[]) {
-    // Default values for matrix dimensions
-    int M = 10;
-    int N = 15;
-
-    // Parse command line arguments if provided
-    if (argc > 1) M = atoi(argv[1]);
-    if (argc > 2) N = atoi(argv[2]);
-
-    printf("Creating matrix of size %d x %d\n", M, N);
-    float* matrix = new float[M * N];
-
-    fill(matrix, M, N);  // Using default mean=0.0 and stddev=1.0
-
-    // Print the matrix
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++) {
-            printf("%8.4f", matrix[i * N + j]);
-        }
-        printf("\n");
-    }
-
-    delete[] matrix;
-    return 0;
 }

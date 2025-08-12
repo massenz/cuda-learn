@@ -27,13 +27,10 @@ set_target_properties(gpu-props PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
 )
 
-add_executable(mat-gen src/mat_gen.cu)
-set_target_properties(mat-gen PROPERTIES
-    CUDA_SEPARABLE_COMPILATION ON
-    RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
-    )
-
-add_executable(id-list-pool src/id-list-map.cu)
+add_executable(id-list-demo
+        src/id-list-map.cu
+        src/mat_gen.cu
+)
 set_target_properties(id-list-pool PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
