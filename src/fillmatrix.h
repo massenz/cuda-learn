@@ -6,6 +6,7 @@
 // Author: Marco Massenzio (marco@alertavert.com)
 #pragma once
 #include <sys/types.h>
+#include <cuda_runtime.h>
 
 
 /**
@@ -25,6 +26,7 @@
  * @param stddev Standard deviation of the normal distribution.
  * @param seed Seed for the random number generator.
  */
+__global__
 void fillMatrixKernel(float* mat, void* strategy, float mean, float stddev, unsigned long seed);
 
 /**

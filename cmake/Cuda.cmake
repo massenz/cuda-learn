@@ -27,11 +27,11 @@ set_target_properties(gpu-props PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
 )
 
-add_executable(id-list-demo
-        src/id-list-map.cu
+add_executable(demo 
+        src/demo.cpp
         src/mat_gen.cu
 )
-set_target_properties(id-list-pool PROPERTIES
+set_target_properties(demo PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     RUNTIME_OUTPUT_DIRECTORY ${TARGET_DIR}
 )
@@ -39,7 +39,7 @@ set_target_properties(id-list-pool PROPERTIES
 
 # Link against CUDA libraries
 target_link_libraries(gpu-props ${CUDA_LIBRARIES})
-target_link_libraries(mat-gen ${CUDA_LIBRARIES} ${CUDA_curand_LIBRARY})
+target_link_libraries(demo ${CUDA_LIBRARIES} ${CUDA_curand_LIBRARY})
 
 # Print information about the build
 message(STATUS "CUDA version: ${CUDA_VERSION}")
