@@ -19,7 +19,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Define the source file name here
 # Replace with the actual source file you want to compile
-set(SOURCE_FILE "id-list-map.cu")
+set(SOURCE_FILE "demo.cpp")
 set(SOURCE_PATH "${CMAKE_SOURCE_DIR}/src/${SOURCE_FILE}")
 
 # Force clang++ if available

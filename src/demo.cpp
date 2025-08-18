@@ -1,17 +1,19 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
-#include <cstdlib>
 
 #include "fillmatrix.h"
 
+// TODO: add the REGISTER macro and wrapper functionality for demo functions.
+// See: https://bitbucket.org/marco/samples/src/develop/
 void printUsage() {
     std::cout << "Usage: demo <command>\n";
     std::cout << "Available commands:\n";
     std::cout << "  fillmat    Fill a matrix with random values\n";
+    std::cout << "  id-list    Demo ID List features preprocessing\n";
 }
 
-void printMatrix(float* mat, uint m, uint n) {
+void printMatrix(const float* mat, uint m, uint n) {
     std::cout << std::fixed << std::setprecision(4);
     for (uint i = 0; i < m; ++i) {
         for (uint j = 0; j < n; ++j) {
@@ -25,7 +27,7 @@ void fillmat() {
     // Create a small matrix for demonstration
     const uint rows = 10;
     const uint cols = 15;
-    float* matrix = new float[rows * cols];
+    const auto matrix = new float[rows * cols];
 
     // Fill the matrix with random values
     fill(matrix, rows, cols);
@@ -38,6 +40,11 @@ void fillmat() {
     delete[] matrix;
 }
 
+void idList() {
+    // Placeholder for ID List functionality
+    std::cout << "ID List functionality is not implemented yet." << std::endl;
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         printUsage();
@@ -45,9 +52,12 @@ int main(int argc, char* argv[]) {
     }
 
     std::string command(argv[1]);
-    
+
     if (command == "fillmat") {
         fillmat();
+        return 0;
+    } else if (command == "id-list") {
+        idList();
         return 0;
     }
 
