@@ -39,18 +39,30 @@ void fill(float* mat, uint m, uint n, float mean, float stddev) {
   CUDA_CHECK(cudaMalloc(&d_mat, size))
       << "Failed to allocate device memory for matrix";
 
+  fillMatrixLaunchKernel(d_mat, n, m, mean, stddev);
+
+  // Copy result back to host
+  CUDA_CHECK(cudaMemcpy(mat, d_mat, size, cudaMemcpyDeviceToHost))
+      << "Failed to copy data from device";
+
+  // Cleanup
+  cudaFree(d_mat);
+}
+
+void fillMatrixLaunchKernel(float* d_mat, uint rows, uint cols, float mean,
+                            float stddev) {
   // Configure kernel launch parameters
   // Each block will handle 16x16 threads
   uint threadsPerBlockDim = 16;
   // The grid will be sized to cover the entire matrix, rows (m)
   // in the y dimension and columns (n) in the x dimension.
-  dim3 gridDim{static_cast<uint>(ceil(n / threadsPerBlockDim) + 1),
-               static_cast<uint>(ceil(m / threadsPerBlockDim) + 1)};
+  dim3 gridDim{static_cast<uint>(ceil(rows / threadsPerBlockDim) + 1),
+               static_cast<uint>(ceil(cols / threadsPerBlockDim) + 1)};
   dim3 blockDim{threadsPerBlockDim, threadsPerBlockDim};
   printf("Grid dimensions: %d x %d, Block dimensions: %d x %d\n", gridDim.x,
          gridDim.y, blockDim.x, blockDim.y);
 
-  RectangularCheckStrategy strategy(m, n);
+  RectangularCheckStrategy strategy(rows, cols);
   RectangularCheckStrategy* d_strategy;
 
   CUDA_CHECK(cudaMalloc(&d_strategy, sizeof(RectangularCheckStrategy)))
@@ -63,11 +75,4 @@ void fill(float* mat, uint m, uint n, float mean, float stddev) {
   fillMatrixKernel<<<gridDim, blockDim>>>(d_mat, d_strategy, mean, stddev,
                                           time(nullptr));
   cudaFree(d_strategy);
-  
-  // Copy result back to host
-  CUDA_CHECK(cudaMemcpy(mat, d_mat, size, cudaMemcpyDeviceToHost))
-      << "Failed to copy data from device";
-
-  // Cleanup
-  cudaFree(d_mat);
 }

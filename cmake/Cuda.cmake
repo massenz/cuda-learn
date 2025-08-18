@@ -30,6 +30,8 @@ set_target_properties(gpu-props PROPERTIES
 add_executable(demo 
         src/demo.cpp
         src/mat_gen.cu
+        src/id-list-map.cu
+        src/chunks.cpp
 )
 set_target_properties(demo PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON

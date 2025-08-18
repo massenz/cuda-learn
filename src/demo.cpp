@@ -40,13 +40,28 @@ void fillmat() {
     delete[] matrix;
 }
 
-void idList() {
-    // Placeholder for ID List functionality
-    std::cout << "ID List functionality is not implemented yet." << std::endl;
+// From id-list-map.cu
+void preproc(const std::string &dataFile, float** pooledFeatures, 
+  size_t& numSamples, size_t nDim);
+
+void idList(const char* dataFile) {
+    try {
+        float* pooledFeatures = nullptr;
+        size_t numSamples;
+        size_t nDim = 128; // Example dimension size, adjust as needed
+        preproc(dataFile, &pooledFeatures, numSamples, nDim);
+        std::cout << "Read " << numSamples << " samples in batch.\n";
+        std::cout << "Pooled features:\n";
+        printMatrix(pooledFeatures, numSamples, nDim);
+        delete[] pooledFeatures; // Free the allocated memory
+    } catch (const std::exception &e) {
+        std::cerr << "Error during ID List preprocessing: " << e.what() << "\n";
+    }
 }
 
+
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
+    if (argc < 2) {
         printUsage();
         return 1;
     }
@@ -57,7 +72,11 @@ int main(int argc, char* argv[]) {
         fillmat();
         return 0;
     } else if (command == "id-list") {
-        idList();
+        if (argc < 3) {
+            std::cerr << "Usage: demo id-list <data-file>\n";
+            return 1;
+        }
+        idList(argv[2]);
         return 0;
     }
 
