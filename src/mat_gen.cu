@@ -27,19 +27,20 @@ __global__ void fillMatrixKernel(float* mat, void* strategy, float mean,
     auto idx = checker.idx();
     curandState state;
     curand_init(seed, idx, 0, &state);
-    mat[idx] = curand_normal(&state) * stddev + mean;
+    auto x = curand_normal(&state) * stddev + mean;
+    mat[idx] = x;
   }
 }
 
-void fill(float* mat, uint m, uint n, float mean, float stddev) {
+void fill(float* mat, uint rows, uint cols, float mean, float stddev) {
   float* d_mat;
-  size_t size = m * n * sizeof(float);
+  size_t size = rows * cols * sizeof(float);
 
   // Allocate device memory
   CUDA_CHECK(cudaMalloc(&d_mat, size))
       << "Failed to allocate device memory for matrix";
 
-  fillMatrixLaunchKernel(d_mat, n, m, mean, stddev);
+  fillMatrixLaunchKernel(d_mat, rows, cols, mean, stddev);
 
   // Copy result back to host
   CUDA_CHECK(cudaMemcpy(mat, d_mat, size, cudaMemcpyDeviceToHost))
@@ -53,14 +54,16 @@ void fillMatrixLaunchKernel(float* d_mat, uint rows, uint cols, float mean,
                             float stddev) {
   // Configure kernel launch parameters
   // Each block will handle 16x16 threads
-  uint threadsPerBlockDim = 16;
+  uint threadsPerBlockDim = 2;
   // The grid will be sized to cover the entire matrix, rows (m)
   // in the y dimension and columns (n) in the x dimension.
-  dim3 gridDim{static_cast<uint>(ceil(rows / threadsPerBlockDim) + 1),
-               static_cast<uint>(ceil(cols / threadsPerBlockDim) + 1)};
+  dim3 gridDim{static_cast<uint>(ceil(cols / threadsPerBlockDim) + 1),
+               static_cast<uint>(ceil(rows / threadsPerBlockDim) + 1)};
   dim3 blockDim{threadsPerBlockDim, threadsPerBlockDim};
-  printf("Grid dimensions: %d x %d, Block dimensions: %d x %d\n", gridDim.x,
-         gridDim.y, blockDim.x, blockDim.y);
+  printf("Matrix: %d x %d\nGrid dimensions: %d x %d\nBlock dimensions: %d x %d\n", 
+    rows, cols,
+    gridDim.x, gridDim.y, 
+    blockDim.x, blockDim.y);
 
   RectangularCheckStrategy strategy(rows, cols);
   RectangularCheckStrategy* d_strategy;

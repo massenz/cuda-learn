@@ -25,8 +25,8 @@ void printMatrix(const float* mat, uint m, uint n) {
 
 void fillmat() {
     // Create a small matrix for demonstration
-    const uint rows = 10;
-    const uint cols = 15;
+    const uint rows = 20;
+    const uint cols = 8;
     const auto matrix = new float[rows * cols];
 
     // Fill the matrix with random values
@@ -48,7 +48,8 @@ void idList(const char* dataFile) {
     try {
         float* pooledFeatures = nullptr;
         size_t numSamples;
-        size_t nDim = 128; // Example dimension size, adjust as needed
+        // TODO: should be a user input or a config parameter.
+        size_t nDim = 8; 
         preproc(dataFile, &pooledFeatures, numSamples, nDim);
         std::cout << "Read " << numSamples << " samples in batch.\n";
         std::cout << "Pooled features:\n";

@@ -79,7 +79,6 @@ __global__ void poolEmbeddings(const size_t *d_offsets, const int64_t *d_values,
     // Get the start and end offsets for the current sample.
     size_t start = idx > 0 ? d_offsets[idx - 1] : 0;
     size_t end = d_offsets[idx];
-    printf("Processing sample %d: offsets [%ld, %ld)\n", idx, start, end);
     // Initialize the pooled features for this sample.
     for (size_t i = 0; i < nDim; ++i) {
       d_pooledFeatures[idx * nDim + i] = 0.0f;
@@ -88,9 +87,6 @@ __global__ void poolEmbeddings(const size_t *d_offsets, const int64_t *d_values,
     for (size_t i = start; i < end; ++i) {
       // Hash the value to get the index in the embedding table.
       size_t tensorIdx = d_values[i] % numTensors;
-      if (tensorIdx < 0) {
-        tensorIdx = -tensorIdx;  // Ensure positive index.
-      }
       // Add the embedding to the pooled features.
       for (size_t j = 0; j < nDim; ++j) {
         d_pooledFeatures[idx * nDim + j] +=
@@ -144,8 +140,8 @@ void prepareBuffers(size_t **d_offsets, int64_t **d_values,
  * @param numSamples Will contain the number of samples that have been read
  * @param nDim Tensors dimensions.
  */
-void preproc(const std::string &dataFile, float** pooledFeatures,
-  size_t& numSamples, size_t nDim) {
+void preproc(const std::string &dataFile, float **pooledFeatures,
+             size_t &numSamples, size_t nDim) {
   try {
     auto data = readInputFile(dataFile);
 
@@ -168,7 +164,7 @@ void preproc(const std::string &dataFile, float** pooledFeatures,
 
     // Creating the lookup tables.
     // TODO: for now fixed size, but we should make it dynamic.
-    const size_t numTensors = 512;  // The embedding table size.
+    const size_t numTensors = 20;  // The embedding table size.
     float *d_embeddings;
     CUDA_CHECK(cudaMalloc(&d_embeddings, numTensors * nDim * sizeof(float)))
         << "Failed to allocate device memory for embeddings";
@@ -188,7 +184,7 @@ void preproc(const std::string &dataFile, float** pooledFeatures,
     CUDA_CHECK(cudaMalloc(&d_strategy, sizeof(LinearCheckStragegy)))
         << "Failed to allocate device memory for strategy";
     CUDA_CHECK(cudaMemcpy(d_strategy, &strategy, sizeof(LinearCheckStragegy),
-                         cudaMemcpyHostToDevice))
+                          cudaMemcpyHostToDevice))
         << "Failed to copy strategy to device";
     uint threadsPerBlock = 256;  // Number of threads per block.
     uint blocks = (numSamples + threadsPerBlock - 1) / threadsPerBlock;
@@ -198,8 +194,8 @@ void preproc(const std::string &dataFile, float** pooledFeatures,
       d_offsets, d_values, d_strategy, d_embeddings,
       d_pooledFeatures, numTensors, nDim);
 
-    std::cout << "Copying pooled features back to host ("
-              << numSamples << " x " << nDim << " floats)\n";
+    std::cout << "Copying pooled features back to host (" << numSamples << " x "
+              << nDim << " floats)\n";
     *pooledFeatures = new float[numSamples * nDim];
     CUDA_CHECK(cudaMemcpy(*pooledFeatures, d_pooledFeatures,
                           numSamples * nDim * sizeof(float),
