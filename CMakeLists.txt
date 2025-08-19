@@ -10,6 +10,7 @@ cmake_minimum_required(VERSION 3.18)
 # Option to build CPU-only version
 option(CPU_ONLY "Build CPU-only version" OFF)
 
+include_directories(${CMAKE_SOURCE_DIR}/src/includes)
 if(CPU_ONLY)
     project(cuda-learn LANGUAGES CXX)
     include(${CMAKE_SOURCE_DIR}/cmake/CpuBuild.cmake)

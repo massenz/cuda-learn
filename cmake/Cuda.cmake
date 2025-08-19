@@ -6,7 +6,7 @@
 # Author: Marco Massenzio (marco@alertavert.com)
 
 # Set CUDA standard
-set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(TARGET_DIR "${CMAKE_BINARY_DIR}/bin")
 
@@ -15,7 +15,7 @@ find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})
 
 # Set CUDA flags (similar to the ones in the Makefile)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O2 -diag-suppress 2361")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O2 -diag-suppress 2361 -Wno-terminate")
 
 # Create build directory if it doesn't exist
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/build)
@@ -30,6 +30,8 @@ set_target_properties(gpu-props PROPERTIES
 add_executable(demo 
         src/demo.cpp
         src/mat_gen.cu
+        src/id-list-map.cu
+        src/chunks.cpp
 )
 set_target_properties(demo PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON

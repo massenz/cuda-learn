@@ -8,10 +8,10 @@ class LinearCheckStragegy {
  public:
   __host__ explicit LinearCheckStragegy(int len) : size_{len} {}
 
-  __device__ bool check() const { return (pos().x < size_); }
+  __device__ bool check() const { return (pos() < size_); }
 
-  __device__ dim3 pos() const {
-    return dim3{blockIdx.x * blockDim.x + threadIdx.x, 0, 0};
+  __device__ int pos() const {
+    return blockIdx.x * blockDim.x + threadIdx.x;
   }
 
   __device__ dim3 dims() const { return dim3{size_, 0, 0}; }
@@ -22,7 +22,8 @@ class LinearCheckStragegy {
 
 class RectangularCheckStrategy {
  public:
-  __host__ RectangularCheckStrategy(uint m, uint n) : rows_{m}, cols_{n} {}
+  __host__ RectangularCheckStrategy(uint rows, uint cols) : 
+    rows_{rows}, cols_{cols} {}
 
   __device__ bool check() const {
     auto p = pos();
@@ -31,10 +32,10 @@ class RectangularCheckStrategy {
 
   __device__ dim3 pos() const {
     return dim3{(blockIdx.x * blockDim.x + threadIdx.x),
-                (blockIdx.y * blockDim.y + threadIdx.y), 0};
+                (blockIdx.y * blockDim.y + threadIdx.y)};
   }
 
-  __device__ dim3 dims() const { return dim3{cols_, rows_, 0}; }
+  __device__ dim3 dims() const { return dim3{cols_, rows_}; }
 
  private:
   uint rows_;
@@ -96,21 +97,47 @@ class SizeCheck {
     return false;  // Should never reach here
   }
 
+
+  /**
+   * Returns the linear index for the current position, based
+   * on the strategy used.
+   *
+   * Matrices are stored in row-major order, where
+   * rows are along the Y dim, and cols are along the X dim.
+   *
+   * Cubes are stored in depth-major order, where
+   * depth is along the Z dim, rows are along the Y dim,
+   * and cols are along the X dim.
+   * The mental model is a stack of images, along the Z axis,
+   * where each image is a matrix of size rows x cols.
+   * 
+   *               /_______ z =2
+   *              /|  
+   *             /_________ z = 1
+   *            / |
+   *      cols /_1_/_2_/_3__ z = 0
+   *  rows 1  |___|___|___
+   *       2  |___|___|___
+   *    ...   |
+   */
   __device__ int idx() const {
     assert(linStrategy_ || rectStrategy_ || cubeStrategy_);
     dim3 pos, dims;
     if (linStrategy_) {
-      pos = linStrategy_->pos();
-      dims = linStrategy_->dims();
+      return linStrategy_->pos();
     } else if (rectStrategy_) {
       pos = rectStrategy_->pos();
       dims = rectStrategy_->dims();
+      return pos.y * dims.x + pos.x;
     } else if (cubeStrategy_) {
       pos = cubeStrategy_->pos();
       dims = cubeStrategy_->dims();
+      auto matSize = dims.x * dims.y;
+      return pos.z * matSize + pos.y * dims.x + pos.x;
     }
-    auto matSize = dims.x * dims.y;
-    return pos.z * matSize + pos.y * dims.x + pos.x;
+    printf("No strategy set for SizeCheck, cannot compute index.\n");
+    assert(false);  // Should never reach here
+    return -1; // Silence compiler warning.
   }
 
  private:

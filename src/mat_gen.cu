@@ -11,6 +11,7 @@
 #include <memory>
 
 #include "boundaries.h"
+#include "cudacheck.h"
 #include "fillmatrix.h"
 
 using namespace std;
@@ -26,65 +27,55 @@ __global__ void fillMatrixKernel(float* mat, void* strategy, float mean,
     auto idx = checker.idx();
     curandState state;
     curand_init(seed, idx, 0, &state);
-    mat[idx] = curand_normal(&state) * stddev + mean;
+    auto x = curand_normal(&state) * stddev + mean;
+    mat[idx] = x;
   }
 }
 
-void fill(float* mat, uint m, uint n, float mean, float stddev) {
+void fill(float* mat, uint rows, uint cols, float mean, float stddev) {
   float* d_mat;
-  size_t size = m * n * sizeof(float);
+  size_t size = rows * cols * sizeof(float);
 
   // Allocate device memory
-  cudaError_t err = cudaMalloc(&d_mat, size);
-  if (err != cudaSuccess) {
-    cerr << "Failed to allocate device memory: " << cudaGetErrorString(err)
-         << endl;
-    return;
-  }
+  CUDA_CHECK(cudaMalloc(&d_mat, size))
+      << "Failed to allocate device memory for matrix";
 
+  fillMatrixLaunchKernel(d_mat, rows, cols, mean, stddev);
+
+  // Copy result back to host
+  CUDA_CHECK(cudaMemcpy(mat, d_mat, size, cudaMemcpyDeviceToHost))
+      << "Failed to copy data from device";
+
+  // Cleanup
+  cudaFree(d_mat);
+}
+
+void fillMatrixLaunchKernel(float* d_mat, uint rows, uint cols, float mean,
+                            float stddev) {
   // Configure kernel launch parameters
   // Each block will handle 16x16 threads
-  uint threadsPerBlockDim = 16;
+  uint threadsPerBlockDim = 2;
   // The grid will be sized to cover the entire matrix, rows (m)
   // in the y dimension and columns (n) in the x dimension.
-  dim3 gridDim{static_cast<uint>(ceil(n / threadsPerBlockDim) + 1),
-               static_cast<uint>(ceil(m / threadsPerBlockDim) + 1)};
+  dim3 gridDim{static_cast<uint>(ceil(cols / threadsPerBlockDim) + 1),
+               static_cast<uint>(ceil(rows / threadsPerBlockDim) + 1)};
   dim3 blockDim{threadsPerBlockDim, threadsPerBlockDim};
-  printf("Grid dimensions: %d x %d, Block dimensions: %d x %d\n", gridDim.x,
-         gridDim.y, blockDim.x, blockDim.y);
+  printf("Matrix: %d x %d\nGrid dimensions: %d x %d\nBlock dimensions: %d x %d\n", 
+    rows, cols,
+    gridDim.x, gridDim.y, 
+    blockDim.x, blockDim.y);
 
-  RectangularCheckStrategy strategy(m, n);
+  RectangularCheckStrategy strategy(rows, cols);
   RectangularCheckStrategy* d_strategy;
-  err = cudaMalloc(&d_strategy, sizeof(RectangularCheckStrategy));
-  if (err != cudaSuccess) {
-    cerr << "Failed to allocate device memory for strategy: "
-         << cudaGetErrorString(err) << endl;
-    cudaFree(d_mat);
-    return;
-  }
-  err = cudaMemcpy(d_strategy, &strategy, sizeof(RectangularCheckStrategy),
-                   cudaMemcpyHostToDevice);
-  if (err != cudaSuccess) {
-    cerr << "Failed to copy strategy to device: " << cudaGetErrorString(err)
-         << endl;
-    cudaFree(d_mat);
-    cudaFree(d_strategy);
-    return;
-  }
+
+  CUDA_CHECK(cudaMalloc(&d_strategy, sizeof(RectangularCheckStrategy)))
+      << "Failed to allocate device memory for strategy";
+  CUDA_CHECK(cudaMemcpy(d_strategy, &strategy, sizeof(RectangularCheckStrategy),
+                        cudaMemcpyHostToDevice))
+      << "Failed to copy strategy to device";
 
   // Launch kernel
   fillMatrixKernel<<<gridDim, blockDim>>>(d_mat, d_strategy, mean, stddev,
                                           time(nullptr));
-
-  // Copy result back to host
-  err = cudaMemcpy(mat, d_mat, size, cudaMemcpyDeviceToHost);
-  if (err != cudaSuccess) {
-    cerr << "Failed to copy data from device: " << cudaGetErrorString(err)
-         << endl;
-    cudaFree(d_mat);
-    return;
-  }
-
-  // Cleanup
-  cudaFree(d_mat);
+  cudaFree(d_strategy);
 }
